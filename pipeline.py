@@ -44,25 +44,27 @@ except ImportError as e:
 #  KONFIGURAATIO — muuta PROJEKTI ja REPO_POLKU tarpeen mukaan
 # ══════════════════════════════════════════════════════════════════
 
-PROJEKTI      = "heinlansi"
 REPO_POLKU    = Path("/home/markus")  # Windows: Path(r"C:\GIS\maasto")
 GITHUB_USER   = "MarkusHytonenPD"
 GITHUB_REPO   = "maasto"
 GITHUB_BRANCH = "main"
 TUNNUS_SARAKE = "tunnus"
 
-# Johdetaan automaattisesti — ei muuteta käsin
-PROJEKTI_POLKU  = REPO_POLKU / "projektit" / PROJEKTI
-KUVA_POLKU      = PROJEKTI_POLKU / "kuvat"
-DATA_POLKU      = PROJEKTI_POLKU / "data"
-GITHUB_BASE_URL = (
-    f"https://raw.githubusercontent.com/{GITHUB_USER}/{GITHUB_REPO}"
-    f"/{GITHUB_BRANCH}/projektit/{PROJEKTI}/kuvat/"
-)
+# Asetetaan main():ssä käyttäjän syötteen perusteella
+PROJEKTI        = ""
+PROJEKTI_POLKU  = Path()
+KUVA_POLKU      = Path()
+DATA_POLKU      = Path()
+GITHUB_BASE_URL = ""
 
-# Hakuetäisyydet metreinä
-ETAISYYS_PUHELIN = 60
-ETAISYYS_DRONE   = 300
+# Oletushakuetäisyydet metreinä (kysytään ajon alussa, nämä ovat oletuksia)
+ETAISYYS_PUHELIN       = 60
+ETAISYYS_DRONE         = 300
+ETAISYYS_JARJ_KAMERA   = 300
+
+# EXIF Make -tunnistus laitteelle
+_DRONE_MAKE = {"dji", "autel", "parrot", "skydio", "yuneec"}
+_PHONE_MAKE = {"apple", "samsung", "google", "huawei", "xiaomi", "oneplus", "motorola", "lg"}
 
 # Kuvanimikaava: ky_[tunnus]_kuva[n].jpg
 _KUVA_RE = re.compile(r"^ky_(.+)_kuva(\d+)\.jpg$", re.IGNORECASE)
@@ -71,6 +73,24 @@ _KUVA_RE = re.compile(r"^ky_(.+)_kuva(\d+)\.jpg$", re.IGNORECASE)
 # ══════════════════════════════════════════════════════════════════
 #  EXIF-APUFUNKTIOT
 # ══════════════════════════════════════════════════════════════════
+
+def _tunnista_laite(kuvatiedosto: Path) -> str:
+    """Palauttaa 'puhelin', 'drone' tai 'jarjestelmakamera' EXIF Make-kentän perusteella."""
+    try:
+        img = Image.open(kuvatiedosto)
+        exif_data = img._getexif()
+        if exif_data:
+            for tag_id, value in exif_data.items():
+                if TAGS.get(tag_id) == "Make":
+                    make = str(value).strip().lower()
+                    if any(d in make for d in _DRONE_MAKE):
+                        return "drone"
+                    if any(p in make for p in _PHONE_MAKE):
+                        return "puhelin"
+                    return "jarjestelmakamera"
+    except Exception:
+        pass
+    return "jarjestelmakamera"  # oletus jos Make puuttuu
 
 def lue_exif_gps(kuvatiedosto: Path):
     """Lukee GPS-koordinaatin EXIF:stä. Palauttaa (lat, lon) tai None."""
@@ -226,6 +246,23 @@ def geotaggeri(kuvakansio: Path, gpx_polku: Path, aikaero_min: int):
 
 
 # ══════════════════════════════════════════════════════════════════
+#  GEOPACKAGE-LUKEMINEN
+# ══════════════════════════════════════════════════════════════════
+
+def _lue_ja_normalisoi_crs(gpkg_polku: Path, layer_nimi: str, kohde_crs: str):
+    """
+    Lukee GeoPackagen ja varmistaa oikean CRS:n.
+    Korjaa tiedostot joissa CRS on 'Undefined' mutta koordinaatit
+    ovat jo EPSG:3067-metreissä (yleinen QGIS-exportointivirhe).
+    """
+    gdf = gpd.read_file(gpkg_polku, layer=layer_nimi)
+    if gdf.crs is None or "Undefined" in str(gdf.crs) or "unknown" in str(gdf.crs).lower():
+        gdf = gdf.set_crs("EPSG:3067", allow_override=True)
+        print("  Huom: CRS tunnistamaton — oletettu EPSG:3067")
+    return gdf.to_crs(kohde_crs)
+
+
+# ══════════════════════════════════════════════════════════════════
 #  VAIHE 2 — KUVIEN NIMEÄMINEN
 # ══════════════════════════════════════════════════════════════════
 
@@ -242,7 +279,7 @@ def _etsi_lahin(x: float, y: float, gdf, max_etaisyys: float):
     idx = etaisyydet.idxmin()
     d   = etaisyydet[idx]
     if d <= max_etaisyys:
-        return (gdf.loc[idx, TUNNUS_SARAKE], round(d, 1))
+        return (str(gdf.loc[idx, TUNNUS_SARAKE]), round(d, 1))
     return None
 
 
@@ -254,10 +291,11 @@ def _seuraava_numero(tunnus: str) -> int | None:
     return None
 
 
-def nimeä_kuvat(kuvakansio: Path, gdf, max_etaisyys: float) -> dict:
+def nimeä_kuvat(kuvakansio: Path, gdf, etaisyydet: dict) -> dict:
     """
     Vaihe 2: nimeää kuvat ja kopioi KUVA_POLKU:hun.
-    Palauttaa tilastotulen {ok, ohitettu, taynna}.
+    etaisyydet = {"puhelin": m, "drone": m, "jarjestelmakamera": m}
+    Palauttaa tilastot {ok, ohitettu, taynna}.
     """
     print("\n--- Vaihe 2: Kuvien nimeäminen ---")
     KUVA_POLKU.mkdir(parents=True, exist_ok=True)
@@ -276,12 +314,14 @@ def nimeä_kuvat(kuvakansio: Path, gdf, max_etaisyys: float) -> dict:
             ohitettu += 1
             continue
 
-        lat, lon = gps
-        x, y    = _wgs84_etrs(lat, lon)
-        tulos   = _etsi_lahin(x, y, gdf, max_etaisyys)
+        laite       = _tunnista_laite(kuva)
+        max_et      = etaisyydet.get(laite, etaisyydet["drone"])
+        lat, lon    = gps
+        x, y        = _wgs84_etrs(lat, lon)
+        tulos       = _etsi_lahin(x, y, gdf, max_et)
 
         if not tulos:
-            print(f"  ✗ {kuva.name}: ei rakennusta {max_etaisyys} m säteellä — ohitetaan")
+            print(f"  ✗ {kuva.name} [{laite}]: ei rakennusta {max_et} m säteellä — ohitetaan")
             ohitettu += 1
             continue
 
@@ -294,7 +334,7 @@ def nimeä_kuvat(kuvakansio: Path, gdf, max_etaisyys: float) -> dict:
 
         uusi_nimi = f"ky_{tunnus}_kuva{n}.jpg".lower()
         shutil.copy2(kuva, KUVA_POLKU / uusi_nimi)
-        print(f"  ✓ {kuva.name} → {uusi_nimi}  (tunnus={tunnus}, {etaisyys} m)")
+        print(f"  ✓ {kuva.name} [{laite}] → {uusi_nimi}  (tunnus={tunnus}, {etaisyys} m)")
         ok += 1
 
     print(f"  Nimetty: {ok}, ohitettu: {ohitettu}, täynnä: {taynna}")
@@ -360,12 +400,15 @@ def vie_geojson(gpkg_polku: Path, layer_nimi: str) -> dict:
     print("\n--- Vaihe 4: GeoJSON-vienti ---")
     DATA_POLKU.mkdir(parents=True, exist_ok=True)
 
-    gdf = gpd.read_file(gpkg_polku, layer=layer_nimi).to_crs("EPSG:4326")
+    gdf = _lue_ja_normalisoi_crs(gpkg_polku, layer_nimi, "EPSG:4326")
 
     # Nollataan sarakkeet (ylikirjoitetaan aiempi ajo)
     gdf["kuva1"] = ""
     gdf["kuva2"] = ""
     gdf["kuva3"] = ""
+
+    # Normalisoidaan tunnus merkkijonoksi — GeoPackagessa voi olla int tai str
+    gdf[TUNNUS_SARAKE] = gdf[TUNNUS_SARAKE].astype(str)
 
     kuva_map = _skannaa_kuvat()
     for tunnus, tiedostot in kuva_map.items():
@@ -386,10 +429,75 @@ def vie_geojson(gpkg_polku: Path, layer_nimi: str) -> dict:
 
 
 # ══════════════════════════════════════════════════════════════════
+#  KÄSIN SIJOITTELU
+# ══════════════════════════════════════════════════════════════════
+
+def sijoita_käsin(gdf) -> int:
+    """
+    Käyttäjä antaa tunnuksen ja kuvan polun toistuvasti.
+    Kopioi kuvan KUVA_POLKU:hun seuraavaan vapaaseen numeroon.
+    Palauttaa lisättyjen kuvien määrän.
+    """
+    print("\n--- Käsin sijoittelu ---")
+    print("  Anna tunnus ja kuvan polku. Tyhjä tunnus lopettaa.")
+    KUVA_POLKU.mkdir(parents=True, exist_ok=True)
+
+    tunnukset = set(gdf[TUNNUS_SARAKE].astype(str))
+    lisatty = 0
+
+    while True:
+        tunnus = input("\n  Tunnus (tai tyhjä lopettaaksesi):\n  > ").strip()
+        if not tunnus:
+            break
+        if tunnus not in tunnukset:
+            print(f"  ⚠ Tunnusta '{tunnus}' ei löydy aineistosta")
+            continue
+
+        kuva_str = input("  Kuvan polku:\n  > ").strip().strip('"')
+        kuva = Path(kuva_str)
+        if not kuva.is_file():
+            print(f"  ⚠ Tiedostoa ei löydy: {kuva}")
+            continue
+        if kuva.suffix.lower() != ".jpg":
+            print(f"  ⚠ Vain .jpg-tiedostot tuettu")
+            continue
+
+        n = _seuraava_numero(tunnus)
+        if n is None:
+            print(f"  ⚠ Tunnuksella {tunnus} on jo 3 kuvaa — ei lisätä")
+            continue
+
+        uusi_nimi = f"ky_{tunnus}_kuva{n}.jpg".lower()
+        shutil.copy2(kuva, KUVA_POLKU / uusi_nimi)
+        print(f"  ✓ {kuva.name} → {uusi_nimi}")
+        lisatty += 1
+
+    print(f"\n  Lisätty: {lisatty} kuvaa")
+    return lisatty
+
+
+# ══════════════════════════════════════════════════════════════════
 #  PÄÄOHJELMA
 # ══════════════════════════════════════════════════════════════════
 
 def main():
+    global PROJEKTI, PROJEKTI_POLKU, KUVA_POLKU, DATA_POLKU, GITHUB_BASE_URL
+
+    PROJEKTI = input("Projekti:\n> ").strip()
+    if not PROJEKTI:
+        print("VIRHE: Projektinimi ei voi olla tyhjä.")
+        input("Paina Enter sulkeaksesi...")
+        return
+
+    PROJEKTI_POLKU  = REPO_POLKU / "projektit" / PROJEKTI
+    KUVA_POLKU      = PROJEKTI_POLKU / "kuvat"
+    DATA_POLKU      = PROJEKTI_POLKU / "data"
+    GITHUB_BASE_URL = (
+        f"https://raw.githubusercontent.com/{GITHUB_USER}/{GITHUB_REPO}"
+        f"/{GITHUB_BRANCH}/projektit/{PROJEKTI}/kuvat/"
+    )
+
+    print()
     print("=" * 60)
     print("  Rakennusdokumentoinnin pipeline")
     print(f"  Projekti: {PROJEKTI}")
@@ -398,14 +506,7 @@ def main():
 
     # --- Kyselyt ---
 
-    kuvakansio_str = input("Kuvakansio (polku):\n> ").strip().strip('"')
-    kuvakansio = Path(kuvakansio_str)
-    if not kuvakansio.is_dir():
-        print(f"VIRHE: Kansiota ei löydy: {kuvakansio}")
-        input("Paina Enter sulkeaksesi...")
-        return
-
-    gpkg_polku_str = input("\nGeoPackage-tiedosto (polku):\n> ").strip().strip('"')
+    gpkg_polku_str = input("GeoPackage-tiedosto (polku):\n> ").strip().strip('"')
     gpkg_polku = Path(gpkg_polku_str)
     if not gpkg_polku.is_file():
         print(f"VIRHE: Tiedostoa ei löydy: {gpkg_polku}")
@@ -414,90 +515,123 @@ def main():
 
     layer_nimi = input("\nLayer-nimi GeoPackagessa:\n> ").strip()
 
-    print(f"\nKuvatyyppi?")
-    print(f"  1 = Puhelin  (hakuetäisyys {ETAISYYS_PUHELIN} m)")
-    print(f"  2 = Drone    (hakuetäisyys {ETAISYYS_DRONE} m)")
-    kuvatyyppi_val = input("Valinta (1/2): ").strip()
-    if kuvatyyppi_val == "1":
-        max_etaisyys = ETAISYYS_PUHELIN
-    elif kuvatyyppi_val == "2":
-        max_etaisyys = ETAISYYS_DRONE
-    else:
+    # --- Tila ---
+
+    print("\nTila?")
+    print("  1 = Pipeline  (automaattinen, kuvakansio → GPS → nimeäminen)")
+    print("  2 = Sijoita käsin  (lisää tai korjaa yksittäisiä kuvia)")
+    tila = input("Valinta (1/2): ").strip()
+    if tila not in ("1", "2"):
         print("Virheellinen valinta.")
         input("Paina Enter sulkeaksesi...")
         return
-
-    gpx_polku   = None
-    aikaero_min = 0
-    if input("\nOnko mukana GPX-tiedosto järjestelmäkameralle? (k/e): ").strip().lower() == "k":
-        gpx_polku_str = input("GPX-tiedoston polku:\n> ").strip().strip('"')
-        gpx_polku = Path(gpx_polku_str)
-        if not gpx_polku.is_file():
-            print(f"VIRHE: GPX-tiedostoa ei löydy: {gpx_polku}")
-            input("Paina Enter sulkeaksesi...")
-            return
-        try:
-            aikaero_min = int(
-                input(
-                    "Kameran kellodrifti minuutteina (0 jos synkronoitu puhelimeen):\n"
-                    "  Aikavyöhyke hoidetaan automaattisesti.\n> "
-                ).strip()
-            )
-        except ValueError:
-            print("VIRHE: Aikaero pitää olla kokonaisluku.")
-            input("Paina Enter sulkeaksesi...")
-            return
 
     # --- Ladataan GeoPackage (EPSG:3067 tilaoperaatioihin) ---
 
     print("\nLadataan rakennusdata...")
     try:
-        gdf_3067 = gpd.read_file(gpkg_polku, layer=layer_nimi).to_crs("EPSG:3067")
+        gdf_3067 = _lue_ja_normalisoi_crs(gpkg_polku, layer_nimi, "EPSG:3067")
+        gdf_3067[TUNNUS_SARAKE] = gdf_3067[TUNNUS_SARAKE].astype(str)
         print(f"  {len(gdf_3067)} rakennusta ladattu.")
     except Exception as e:
         print(f"VIRHE: GeoPackagea ei voitu lukea:\n{e}")
         input("Paina Enter sulkeaksesi...")
         return
 
-    # --- Vaihe 1: GPX-geotägäys ---
+    # ── TILA 1: PIPELINE ──────────────────────────────────────────
 
-    if gpx_polku:
-        geotaggeri(kuvakansio, gpx_polku, aikaero_min)
+    if tila == "1":
 
-    # --- Vaihe 2: Kuvien nimeäminen ---
+        kuvakansio_str = input("\nKuvakansio (polku):\n> ").strip().strip('"')
+        kuvakansio = Path(kuvakansio_str)
+        if not kuvakansio.is_dir():
+            print(f"VIRHE: Kansiota ei löydy: {kuvakansio}")
+            input("Paina Enter sulkeaksesi...")
+            return
 
-    tilastot = nimeä_kuvat(kuvakansio, gdf_3067, max_etaisyys)
+        def _kysy_etaisyys(nimi: str, oletus: int) -> int:
+            arvo = input(f"  {nimi} [{oletus} m]: ").strip()
+            return int(arvo) if arvo else oletus
 
-    # --- Vaihe 3: Git push — kuvat ---
+        print("\nHakuetäisyydet (Enter = oletus):")
+        try:
+            etaisyydet = {
+                "puhelin":        _kysy_etaisyys("Puhelin       ", ETAISYYS_PUHELIN),
+                "drone":          _kysy_etaisyys("Drone         ", ETAISYYS_DRONE),
+                "jarjestelmakamera": _kysy_etaisyys("Järj.kamera   ", ETAISYYS_JARJ_KAMERA),
+            }
+        except ValueError:
+            print("VIRHE: Etäisyyden pitää olla kokonaisluku.")
+            input("Paina Enter sulkeaksesi...")
+            return
 
-    if tilastot["ok"] > 0:
-        print("\n--- Vaihe 3: Git push (kuvat) ---")
-        git_push(
-            f"Lisää kenttäkuvat: {PROJEKTI}",
-            f"projektit/{PROJEKTI}/kuvat/",
-        )
+        gpx_polku   = None
+        aikaero_min = 0
+        if input("\nOnko mukana GPX-tiedosto järjestelmäkameralle? (k/e): ").strip().lower() == "k":
+            gpx_polku_str = input("GPX-tiedoston polku:\n> ").strip().strip('"')
+            gpx_polku = Path(gpx_polku_str)
+            if not gpx_polku.is_file():
+                print(f"VIRHE: GPX-tiedostoa ei löydy: {gpx_polku}")
+                input("Paina Enter sulkeaksesi...")
+                return
+            try:
+                aikaero_min = int(
+                    input(
+                        "Kameran kellodrifti minuutteina (0 jos synkronoitu puhelimeen):\n"
+                        "  Aikavyöhyke hoidetaan automaattisesti.\n> "
+                    ).strip()
+                )
+            except ValueError:
+                print("VIRHE: Aikaero pitää olla kokonaisluku.")
+                input("Paina Enter sulkeaksesi...")
+                return
+
+        if gpx_polku:
+            geotaggeri(kuvakansio, gpx_polku, aikaero_min)
+
+        tilastot = nimeä_kuvat(kuvakansio, gdf_3067, etaisyydet)
+        kuvia_lisatty = tilastot["ok"]
+
+        if kuvia_lisatty > 0:
+            print("\n--- Vaihe 3: Git push (kuvat) ---")
+            git_push(
+                f"Lisää kenttäkuvat: {PROJEKTI}",
+                f"projektit/{PROJEKTI}/kuvat/",
+            )
+        else:
+            print("\nVaihe 3 ohitettu — ei nimetty yhtään kuvaa.")
+
+    # ── TILA 2: KÄSIN SIJOITTELU ──────────────────────────────────
+
     else:
-        print("\nVaihe 3 ohitettu — ei nimetty yhtään kuvaa.")
+        kuvia_lisatty = sijoita_käsin(gdf_3067)
 
-    # --- Vaihe 4: GeoJSON-vienti + git push ---
+        if kuvia_lisatty > 0:
+            print("\n--- Git push (kuvat) ---")
+            git_push(
+                f"Lisää kenttäkuvat: {PROJEKTI}",
+                f"projektit/{PROJEKTI}/kuvat/",
+            )
+
+        tilastot = {"ok": kuvia_lisatty, "ohitettu": 0, "taynna": 0}
+
+    # ── YHTEINEN LOPPU: GEOJSON + PUSH ────────────────────────────
 
     geojson_tilastot = vie_geojson(gpkg_polku, layer_nimi)
 
-    print("\n--- Vaihe 4b: Git push (data) ---")
+    print("\n--- Git push (data) ---")
     git_push(
         f"Päivitä kohteet.geojson: {PROJEKTI}",
         f"projektit/{PROJEKTI}/data/",
     )
 
-    # --- Vaihe 5: Yhteenveto ---
-
     print()
     print("=" * 60)
     print("  Valmis!")
-    print(f"  Kuvia nimetty:       {tilastot['ok']}")
-    if tilastot["ohitettu"]:
+    print(f"  Kuvia lisätty:       {tilastot['ok']}")
+    if tilastot.get("ohitettu"):
         print(f"  Ohitettu:            {tilastot['ohitettu']}  (ei GPS tai ei rakennusta lähellä)")
-    if tilastot["taynna"]:
+    if tilastot.get("taynna"):
         print(f"  Täynnä:              {tilastot['taynna']}  (rakennuksella jo 3 kuvaa)")
     print(f"  Rakennuksia kuvilla: {geojson_tilastot['kuvilla']} / {geojson_tilastot['rakennuksia']}")
     print("=" * 60)
