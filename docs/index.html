@@ -151,27 +151,30 @@ const mmlTausta = L.tileLayer(MML_URL_POHJA, {
   opacity: 1.0, attribution: "&copy; MML",
 });
 
-// ── Kaavarasteri (WMS) ────────────────────────────────────────
+// ── WMS-tasot config.js:n TASOT-taulukosta ───────────────────
 
-const wmsKaavarasteri = L.tileLayer.wms(CONFIG.WMS_URL, {
-  layers: "kaavarasterit:hein_lans_luonnos",
-  format: "image/png",
-  transparent: true,
-  version: "1.1.1",
-  tileSize: 512,
-  attribution: "&copy; Ubigu",
+const wmsOverlays = {};
+(CONFIG.TASOT || []).forEach(taso => {
+  const layer = L.tileLayer.wms(taso.url, {
+    layers:      taso.layer,
+    format:      "image/png",
+    transparent: true,
+    version:     "1.1.1",
+    tileSize:    512,
+  });
+  // Valkoiset pikselit läpinäkyviksi
+  layer.on("add", () => {
+    layer.getContainer().style.mixBlendMode = "multiply";
+  });
+  if (taso.nakyva !== false) layer.addTo(map);
+  wmsOverlays[taso.nimi] = layer;
 });
-// Valkoiset pikselit läpinäkyviksi: multiply poistaa valkoisen
-wmsKaavarasteri.on("add", () => {
-  wmsKaavarasteri.getContainer().style.mixBlendMode = "multiply";
-});
-wmsKaavarasteri.addTo(map);
 
 // ── Layer control ─────────────────────────────────────────────
 
 L.control.layers(
   { "Maastokartta": mmlMaasto, "Taustakartta": mmlTausta },
-  { "Kaavaluonnos": wmsKaavarasteri },
+  wmsOverlays,
   { collapsed: false }
 ).addTo(map);
 

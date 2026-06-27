@@ -6,9 +6,6 @@ const CONFIG = {
     // Hankinta: https://www.maanmittauslaitos.fi/rajapinnat/api-avaimet
     MML_API_KEY: "KORVAA_TAHAN_MML_API_AVAIN",
 
-    // Ubigu GeoServer — kaavarasteri WMS
-    WMS_URL: "https://ubigu.ubihub.io/geoserver/kaavarasterit/ows",
-
     // Google Apps Script -endpoint (saadaan deploymentin jälkeen)
     SHEETS_URL: "KORVAA_TAHAN_APPS_SCRIPT_URL",
 
@@ -17,4 +14,21 @@ const CONFIG = {
 
     // GitHub raw -URL repon juureen (GeoJSON-datan haku GitHub Pagesissa)
     GITHUB_RAW: "https://raw.githubusercontent.com/MarkusHytonenPD/maasto/main",
+
+    // WMS-tasot layer controliin. nakyva: false → piilotettu oletuksena.
+    TASOT: [
+        {
+            nimi:   "Kaavaluonnos",
+            url:    "https://ubigu.ubihub.io/geoserver/kaavarasterit/ows",
+            layer:  "kaavarasterit:KORVAA_LAYER_NIMI",
+            nakyva: true,
+        },
+        // Lisää tarpeen mukaan:
+        // {
+        //     nimi:   "Toinen taso",
+        //     url:    "https://...",
+        //     layer:  "workspace:layername",
+        //     nakyva: false,
+        // },
+    ],
 };
