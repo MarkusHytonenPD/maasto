@@ -45,7 +45,7 @@ except ImportError as e:
 #  KONFIGURAATIO — muuta PROJEKTI ja REPO_POLKU tarpeen mukaan
 # ══════════════════════════════════════════════════════════════════
 
-REPO_POLKU    = Path("/home/markus")  # Windows: Path(r"C:\GIS\maasto")
+REPO_POLKU    = Path("/home/markus/rak_kult_kuvakarttajulkaisu")  # Windows: Path(r"C:\GIS\maasto")
 GITHUB_USER   = "MarkusHytonenPD"
 GITHUB_REPO   = "maasto"
 GITHUB_BRANCH = "main"
