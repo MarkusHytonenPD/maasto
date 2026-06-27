@@ -45,7 +45,7 @@ except ImportError as e:
 # ══════════════════════════════════════════════════════════════════
 
 PROJEKTI      = "heinlansi"
-REPO_POLKU    = Path(r"C:\GIS\maasto")
+REPO_POLKU    = Path("/home/markus")  # Windows: Path(r"C:\GIS\maasto")
 GITHUB_USER   = "MarkusHytonenPD"
 GITHUB_REPO   = "maasto"
 GITHUB_BRANCH = "main"
@@ -312,11 +312,12 @@ def git_push(viesti: str, suhteellinen_polku: str):
         ["git", "-C", str(REPO_POLKU), "add", suhteellinen_polku],
         check=True,
     )
+    # Tarkistetaan vain stagetetut muutokset (--cached), ei working tree -muutoksia
     tulos = subprocess.run(
-        ["git", "-C", str(REPO_POLKU), "status", "--porcelain"],
-        capture_output=True, text=True, check=True,
+        ["git", "-C", str(REPO_POLKU), "diff", "--cached", "--quiet"],
+        capture_output=True,
     )
-    if not tulos.stdout.strip():
+    if tulos.returncode == 0:  # 0 = ei stagetuita muutoksia
         print("  Ei muutoksia commitoitavaksi.")
         return
     subprocess.run(
@@ -324,7 +325,7 @@ def git_push(viesti: str, suhteellinen_polku: str):
         check=True,
     )
     subprocess.run(
-        ["git", "-C", str(REPO_POLKU), "push"],
+        ["git", "-C", str(REPO_POLKU), "push", "--set-upstream", "origin", "main"],
         check=True,
     )
     print("  Push valmis.")
@@ -469,11 +470,14 @@ def main():
 
     # --- Vaihe 3: Git push — kuvat ---
 
-    print("\n--- Vaihe 3: Git push (kuvat) ---")
-    git_push(
-        f"Lisää kenttäkuvat: {PROJEKTI}",
-        f"projektit/{PROJEKTI}/kuvat/",
-    )
+    if tilastot["ok"] > 0:
+        print("\n--- Vaihe 3: Git push (kuvat) ---")
+        git_push(
+            f"Lisää kenttäkuvat: {PROJEKTI}",
+            f"projektit/{PROJEKTI}/kuvat/",
+        )
+    else:
+        print("\nVaihe 3 ohitettu — ei nimetty yhtään kuvaa.")
 
     # --- Vaihe 4: GeoJSON-vienti + git push ---
 
