@@ -1,6 +1,3 @@
-# Paikalliset konfiguraatiotiedostot — sisältävät API-avaimia
-docs/config.js
-
 # Python
 __pycache__/
 *.py[cod]
