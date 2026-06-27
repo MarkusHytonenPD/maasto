@@ -434,17 +434,50 @@ def vie_geojson(gpkg_polku: Path, layer_nimi: str) -> dict:
 # ══════════════════════════════════════════════════════════════════
 
 def alusta_projekticonfig():
-    """Luo config.json-pohjan jos sitä ei vielä ole."""
-    kohde = PROJEKTI_POLKU / "config.json"
-    if kohde.exists():
-        return
+    """Luo config.json-pohjan ja docs/[projekti]/index.html jos niitä ei vielä ole."""
     PROJEKTI_POLKU.mkdir(parents=True, exist_ok=True)
-    pohja = {
-        "nimi": PROJEKTI,
-        "tasot": [],
-    }
-    kohde.write_text(json.dumps(pohja, ensure_ascii=False, indent=4), encoding="utf-8")
-    print(f"  Luotu: {kohde}  (lisää WMS-tasot tähän tarvittaessa)")
+
+    kohde_cfg = PROJEKTI_POLKU / "config.json"
+    if not kohde_cfg.exists():
+        pohja = {"nimi": PROJEKTI, "tasot": []}
+        kohde_cfg.write_text(json.dumps(pohja, ensure_ascii=False, indent=4), encoding="utf-8")
+        print(f"  Luotu: {kohde_cfg}  (lisää WMS-tasot tähän tarvittaessa)")
+
+    docs_projekti = REPO_POLKU / "docs" / PROJEKTI
+    docs_projekti.mkdir(parents=True, exist_ok=True)
+    kohde_html = docs_projekti / "index.html"
+    if not kohde_html.exists():
+        html = f"""\
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{PROJEKTI}</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="../kartta.css" />
+</head>
+<body>
+
+<div id="map"></div>
+
+<div id="lightbox">
+  <span id="lightbox-sulje" title="Sulje">&#x2715;</span>
+  <img id="lightbox-kuva" src="" alt="" />
+</div>
+
+<script>window.PROJEKTI = "{PROJEKTI}";</script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/proj4@2.11.0/dist/proj4.js"></script>
+<script src="https://unpkg.com/proj4leaflet@1.0.2/src/proj4leaflet.js"></script>
+<script src="../config.js"></script>
+<script src="../kartta.js"></script>
+
+</body>
+</html>
+"""
+        kohde_html.write_text(html, encoding="utf-8")
+        print(f"  Luotu: {kohde_html}")
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -517,6 +550,7 @@ def main():
     )
 
     alusta_projekticonfig()
+    git_push(f"Alusta projekti: {PROJEKTI}", f"docs/{PROJEKTI}/")
 
     print()
     print("=" * 60)

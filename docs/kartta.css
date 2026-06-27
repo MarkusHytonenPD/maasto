@@ -1,0 +1,88 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: sans-serif; }
+#map { width: 100vw; height: 100vh; }
+
+/* ── Teemapainikkeet ──────────────────────────────────── */
+.teema-control {
+  background: white;
+  padding: 5px 7px;
+  border-radius: 4px;
+  box-shadow: 0 1px 5px rgba(0,0,0,.4);
+}
+.teema-control button {
+  display: block;
+  width: 100%;
+  margin: 2px 0;
+  padding: 4px 10px;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  cursor: pointer;
+  background: white;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.teema-control button.aktiivinen {
+  background: #3388ff;
+  color: white;
+  border-color: #3388ff;
+}
+
+/* ── Popup ────────────────────────────────────────────── */
+.pu { min-width: 280px; max-width: 400px; }
+.pu-otsikko { font-weight: bold; font-size: 14px; margin-bottom: 8px; }
+.pu-tunnus { color: #777; font-weight: normal; }
+
+.pu-kuvat { display: flex; gap: 5px; margin-bottom: 10px; flex-wrap: wrap; }
+.pu-kuvat img {
+  height: 110px; width: auto; cursor: zoom-in;
+  border-radius: 3px; border: 1px solid #ddd;
+}
+
+.pu-attr { font-size: 12px; margin-bottom: 10px; }
+.pu-attr table { border-collapse: collapse; width: 100%; }
+.pu-attr td { padding: 2px 5px; border-bottom: 1px solid #eee; vertical-align: top; }
+.pu-attr td:first-child { color: #555; white-space: nowrap; font-weight: 600; }
+
+.pu-viranomainen {
+  font-size: 12px; padding: 5px 8px; border-radius: 3px;
+  margin-bottom: 8px; border-left: 3px solid #ccc; background: #f8f8f8;
+}
+.lk-suojelukohde    { border-color: #e31a1c !important; background: #fdd !important; }
+.lk-huomionarvoinen { border-color: #ff7f00 !important; background: #ffe8cc !important; }
+.lk-ei-arvoja       { border-color: #999    !important; background: #eee !important; }
+
+.pu-kommentit h4 { font-size: 12px; margin: 8px 0 4px; color: #333; }
+.pu-kommentti { font-size: 11px; padding: 4px 0; border-bottom: 1px solid #eee; }
+.pu-kommentti-meta { color: #888; margin-top: 2px; }
+.pu-ei-kommentteja { font-size: 11px; color: #999; }
+
+.pu-lomake label {
+  display: block; font-size: 11px; margin-top: 8px; margin-bottom: 2px; color: #555;
+}
+.pu-lomake textarea,
+.pu-lomake input[type=text],
+.pu-lomake select {
+  width: 100%; font-size: 12px; padding: 3px 5px;
+  border: 1px solid #ccc; border-radius: 3px;
+}
+.pu-lomake textarea { height: 60px; resize: vertical; }
+.pu-lomake-footer { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
+.pu-lomake button {
+  padding: 5px 14px; background: #3388ff; color: white;
+  border: none; border-radius: 3px; cursor: pointer; font-size: 12px;
+}
+.pu-lomake button:hover { background: #2266cc; }
+.pu-lomake-viesti { font-size: 11px; color: #555; }
+
+/* ── Lightbox ─────────────────────────────────────────── */
+#lightbox {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,.85); z-index: 9999;
+  align-items: center; justify-content: center;
+}
+#lightbox.auki { display: flex; }
+#lightbox img { max-width: 92%; max-height: 92vh; border-radius: 4px; }
+#lightbox-sulje {
+  position: absolute; top: 14px; right: 20px;
+  color: white; font-size: 30px; cursor: pointer; line-height: 1;
+}
