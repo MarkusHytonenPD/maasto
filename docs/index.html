@@ -151,30 +151,11 @@ const mmlTausta = L.tileLayer(MML_URL_POHJA, {
   opacity: 1.0, attribution: "&copy; MML",
 });
 
-// ── WMS-tasot config.js:n TASOT-taulukosta ───────────────────
+// ── Layer control (täydennetään projektikohtaisilla tasoilla init():ssä) ──
 
-const wmsOverlays = {};
-(CONFIG.TASOT || []).forEach(taso => {
-  const layer = L.tileLayer.wms(taso.url, {
-    layers:      taso.layer,
-    format:      "image/png",
-    transparent: true,
-    version:     "1.1.1",
-    tileSize:    512,
-  });
-  // Valkoiset pikselit läpinäkyviksi
-  layer.on("add", () => {
-    layer.getContainer().style.mixBlendMode = "multiply";
-  });
-  if (taso.nakyva !== false) layer.addTo(map);
-  wmsOverlays[taso.nimi] = layer;
-});
-
-// ── Layer control ─────────────────────────────────────────────
-
-L.control.layers(
+const layerControl = L.control.layers(
   { "Maastokartta": mmlMaasto, "Taustakartta": mmlTausta },
-  wmsOverlays,
+  {},
   { collapsed: false }
 ).addTo(map);
 
@@ -465,23 +446,57 @@ document.getElementById("lightbox").addEventListener("click", e => {
 document.addEventListener("keydown", e => { if (e.key === "Escape") suljeLightbox(); });
 
 // ═══════════════════════════════════════════════════════════════
-//  LATAUS
-//  GeoJSON haetaan GitHub raw -URL:sta jotta toimii GitHub Pagesissa.
-//  GITHUB_RAW määritellään config.js:ssä.
+//  INIT — lukee projekti URL:sta, hakee config.json ja GeoJSON
 // ═══════════════════════════════════════════════════════════════
 
-const geojsonUrl = `${CONFIG.GITHUB_RAW}/projektit/${CONFIG.PROJEKTI}/data/kohteet.geojson`;
+async function init() {
+  const projekti = new URLSearchParams(window.location.search).get("projekti");
+  if (!projekti) {
+    document.body.insertAdjacentHTML("afterbegin",
+      '<p style="padding:1em;color:red">Puuttuu URL-parametri: <strong>?projekti=nimi</strong></p>');
+    return;
+  }
 
-fetch(geojsonUrl)
-  .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
-  .then(data => {
-    geojsonData = data;
-    paivitaLayer();
-    if (geojsonLayer && geojsonLayer.getBounds().isValid()) {
-      map.fitBounds(geojsonLayer.getBounds(), { padding: [40, 40] });
-    }
-  })
-  .catch(e => console.error("GeoJSON-lataus epäonnistui:", e));
+  // Haetaan projektikohtainen config.json
+  let projektiConfig = { tasot: [] };
+  try {
+    const r = await fetch(`${CONFIG.GITHUB_RAW}/projektit/${projekti}/config.json`);
+    if (r.ok) projektiConfig = await r.json();
+  } catch (e) {
+    console.warn("config.json puuttuu, jatketaan ilman tasoja");
+  }
+
+  // Lisätään WMS-tasot layer controliin
+  (projektiConfig.tasot || []).forEach(taso => {
+    const layer = L.tileLayer.wms(taso.url, {
+      layers:      taso.layer,
+      format:      "image/png",
+      transparent: true,
+      version:     "1.1.1",
+      tileSize:    512,
+    });
+    layer.on("add", () => {
+      layer.getContainer().style.mixBlendMode = "multiply";
+    });
+    if (taso.nakyva !== false) layer.addTo(map);
+    layerControl.addOverlay(layer, taso.nimi);
+  });
+
+  // Haetaan GeoJSON
+  const geojsonUrl = `${CONFIG.GITHUB_RAW}/projektit/${projekti}/data/kohteet.geojson`;
+  fetch(geojsonUrl)
+    .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+    .then(data => {
+      geojsonData = data;
+      paivitaLayer();
+      if (geojsonLayer && geojsonLayer.getBounds().isValid()) {
+        map.fitBounds(geojsonLayer.getBounds(), { padding: [40, 40] });
+      }
+    })
+    .catch(e => console.error("GeoJSON-lataus epäonnistui:", e));
+}
+
+init();
 
 </script>
 </body>

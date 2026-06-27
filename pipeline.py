@@ -18,6 +18,7 @@ Konfiguroi PROJEKTI ja REPO_POLKU alla, muut johdetaan automaattisesti.
 """
 
 import datetime
+import json
 import re
 import shutil
 import subprocess
@@ -429,6 +430,24 @@ def vie_geojson(gpkg_polku: Path, layer_nimi: str) -> dict:
 
 
 # ══════════════════════════════════════════════════════════════════
+#  PROJEKTICONFIG
+# ══════════════════════════════════════════════════════════════════
+
+def alusta_projekticonfig():
+    """Luo config.json-pohjan jos sitä ei vielä ole."""
+    kohde = PROJEKTI_POLKU / "config.json"
+    if kohde.exists():
+        return
+    PROJEKTI_POLKU.mkdir(parents=True, exist_ok=True)
+    pohja = {
+        "nimi": PROJEKTI,
+        "tasot": [],
+    }
+    kohde.write_text(json.dumps(pohja, ensure_ascii=False, indent=4), encoding="utf-8")
+    print(f"  Luotu: {kohde}  (lisää WMS-tasot tähän tarvittaessa)")
+
+
+# ══════════════════════════════════════════════════════════════════
 #  KÄSIN SIJOITTELU
 # ══════════════════════════════════════════════════════════════════
 
@@ -496,6 +515,8 @@ def main():
         f"https://raw.githubusercontent.com/{GITHUB_USER}/{GITHUB_REPO}"
         f"/{GITHUB_BRANCH}/projektit/{PROJEKTI}/kuvat/"
     )
+
+    alusta_projekticonfig()
 
     print()
     print("=" * 60)
