@@ -158,6 +158,7 @@ const wmsKaavarasteri = L.tileLayer.wms(CONFIG.WMS_URL, {
   format: "image/png",
   transparent: true,
   version: "1.1.1",
+  tileSize: 512,
   attribution: "&copy; Ubigu",
 });
 // Valkoiset pikselit läpinäkyviksi: multiply poistaa valkoisen
