@@ -1,0 +1,65 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [28.541868, 62.326939] },
+      "properties": {
+        "tunnus": "63",
+        "nimi": "Aittala",
+        "luokitus": "A+",
+        "tyyppi": "Asuinrakennus",
+        "rakennusvuosi": 1895,
+        "kunto": "Välttävä",
+        "kuva1": "",
+        "kuva2": "",
+        "kuva3": ""
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [28.605478, 62.323669] },
+      "properties": {
+        "tunnus": "21",
+        "nimi": "Niemistö",
+        "luokitus": "A",
+        "tyyppi": "Navetta",
+        "rakennusvuosi": 1912,
+        "kunto": "Huono",
+        "kuva1": "",
+        "kuva2": "",
+        "kuva3": ""
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [28.570000, 62.340000] },
+      "properties": {
+        "tunnus": "44",
+        "nimi": "Koivula",
+        "luokitus": "B",
+        "tyyppi": "Sauna",
+        "rakennusvuosi": 1930,
+        "kunto": "Tyydyttävä",
+        "kuva1": "",
+        "kuva2": "",
+        "kuva3": ""
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [28.620000, 62.310000] },
+      "properties": {
+        "tunnus": "7",
+        "nimi": "Mäkitalo",
+        "luokitus": "C",
+        "tyyppi": "Lato",
+        "rakennusvuosi": 1950,
+        "kunto": "Hyvä",
+        "kuva1": "",
+        "kuva2": "",
+        "kuva3": ""
+      }
+    }
+  ]
+}

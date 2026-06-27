@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rakennusinventointi</title>
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: sans-serif; }
+    #map { width: 100vw; height: 100vh; }
+
+    /* ── Teemapainikkeet ──────────────────────────────────── */
+    .teema-control {
+      background: white;
+      padding: 5px 7px;
+      border-radius: 4px;
+      box-shadow: 0 1px 5px rgba(0,0,0,.4);
+    }
+    .teema-control button {
+      display: block;
+      width: 100%;
+      margin: 2px 0;
+      padding: 4px 10px;
+      border: 1px solid #ccc;
+      border-radius: 3px;
+      cursor: pointer;
+      background: white;
+      font-size: 12px;
+      white-space: nowrap;
+    }
+    .teema-control button.aktiivinen {
+      background: #3388ff;
+      color: white;
+      border-color: #3388ff;
+    }
+
+    /* ── Popup ────────────────────────────────────────────── */
+    .pu { min-width: 280px; max-width: 400px; }
+    .pu-otsikko { font-weight: bold; font-size: 14px; margin-bottom: 8px; }
+    .pu-tunnus { color: #777; font-weight: normal; }
+
+    .pu-kuvat { display: flex; gap: 5px; margin-bottom: 10px; flex-wrap: wrap; }
+    .pu-kuvat img {
+      height: 110px; width: auto; cursor: zoom-in;
+      border-radius: 3px; border: 1px solid #ddd;
+    }
+
+    .pu-attr { font-size: 12px; margin-bottom: 10px; }
+    .pu-attr table { border-collapse: collapse; width: 100%; }
+    .pu-attr td { padding: 2px 5px; border-bottom: 1px solid #eee; vertical-align: top; }
+    .pu-attr td:first-child { color: #555; white-space: nowrap; font-weight: 600; }
+
+    .pu-viranomainen {
+      font-size: 12px; padding: 5px 8px; border-radius: 3px;
+      margin-bottom: 8px; border-left: 3px solid #ccc; background: #f8f8f8;
+    }
+    .lk-suojelukohde    { border-color: #e31a1c !important; background: #fdd !important; }
+    .lk-huomionarvoinen { border-color: #ff7f00 !important; background: #ffe8cc !important; }
+    .lk-ei-arvoja       { border-color: #999    !important; background: #eee !important; }
+
+    .pu-kommentit h4 { font-size: 12px; margin: 8px 0 4px; color: #333; }
+    .pu-kommentti { font-size: 11px; padding: 4px 0; border-bottom: 1px solid #eee; }
+    .pu-kommentti-meta { color: #888; margin-top: 2px; }
+    .pu-ei-kommentteja { font-size: 11px; color: #999; }
+
+    .pu-lomake label {
+      display: block; font-size: 11px; margin-top: 8px; margin-bottom: 2px; color: #555;
+    }
+    .pu-lomake textarea,
+    .pu-lomake input[type=text],
+    .pu-lomake select {
+      width: 100%; font-size: 12px; padding: 3px 5px;
+      border: 1px solid #ccc; border-radius: 3px;
+    }
+    .pu-lomake textarea { height: 60px; resize: vertical; }
+    .pu-lomake-footer { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
+    .pu-lomake button {
+      padding: 5px 14px; background: #3388ff; color: white;
+      border: none; border-radius: 3px; cursor: pointer; font-size: 12px;
+    }
+    .pu-lomake button:hover { background: #2266cc; }
+    .pu-lomake-viesti { font-size: 11px; color: #555; }
+
+    /* ── Lightbox ─────────────────────────────────────────── */
+    #lightbox {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,.85); z-index: 9999;
+      align-items: center; justify-content: center;
+    }
+    #lightbox.auki { display: flex; }
+    #lightbox img { max-width: 92%; max-height: 92vh; border-radius: 4px; }
+    #lightbox-sulje {
+      position: absolute; top: 14px; right: 20px;
+      color: white; font-size: 30px; cursor: pointer; line-height: 1;
+    }
+  </style>
+</head>
+<body>
+
+<div id="map"></div>
+
+<div id="lightbox">
+  <span id="lightbox-sulje" title="Sulje">&#x2715;</span>
+  <img id="lightbox-kuva" src="" alt="" />
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/proj4@2.11.0/dist/proj4.js"></script>
+<script src="https://unpkg.com/proj4leaflet@1.0.2/src/proj4leaflet.js"></script>
+<script src="config.js"></script>
+<script>
+"use strict";
+
+// ═══════════════════════════════════════════════════════════════
+//  CRS — ETRS-TM35FIN (EPSG:3067)
+//  Resoluutiot ja origo: MML WMTS ETRS-TM35FIN -tiilimatriisi
+// ═══════════════════════════════════════════════════════════════
+
+const crs = new L.Proj.CRS(
+  "EPSG:3067",
+  "+proj=utm +zone=35 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs",
+  {
+    resolutions: [8192, 4096, 2048, 1024, 512, 256, 128, 64, 32, 16, 8, 4, 2, 1, 0.5, 0.25],
+    origin: [-548576, 8388608],
+    bounds: L.bounds([-548576, 6291456], [1548576, 8388608]),
+  }
+);
+
+// ═══════════════════════════════════════════════════════════════
+//  KARTTA
+// ═══════════════════════════════════════════════════════════════
+
+const map = L.map("map", { crs, center: [62.4, 28.5], zoom: 9 });
+
+// ── Taustakartat ──────────────────────────────────────────────
+
+const MML_URL_POHJA =
+  "https://avoin-map.maanmittauslaitos.fi/avoin/wmts/1.0.0/{layer}/default/ETRS-TM35FIN/{z}/{y}/{x}.png?api-key={apikey}";
+
+const mmlMaasto = L.tileLayer(MML_URL_POHJA, {
+  layer: "maastokartta", apikey: CONFIG.MML_API_KEY,
+  opacity: 0.3, attribution: "&copy; MML",
+});
+mmlMaasto.addTo(map);
+
+const mmlTausta = L.tileLayer(MML_URL_POHJA, {
+  layer: "taustakartta", apikey: CONFIG.MML_API_KEY,
+  opacity: 1.0, attribution: "&copy; MML",
+});
+
+// ── Kaavarasteri (WMS) ────────────────────────────────────────
+
+const wmsKaavarasteri = L.tileLayer.wms(CONFIG.WMS_URL, {
+  layers: "kaavarasterit:hein_lans_luonnos",
+  format: "image/png",
+  transparent: true,
+  version: "1.1.1",
+  attribution: "&copy; Ubigu",
+});
+// Valkoiset pikselit läpinäkyviksi: multiply poistaa valkoisen
+wmsKaavarasteri.on("add", () => {
+  wmsKaavarasteri.getContainer().style.mixBlendMode = "multiply";
+});
+wmsKaavarasteri.addTo(map);
+
+// ── Layer control ─────────────────────────────────────────────
+
+L.control.layers(
+  { "Maastokartta": mmlMaasto, "Taustakartta": mmlTausta },
+  { "Kaavaluonnos": wmsKaavarasteri },
+  { collapsed: false }
+).addTo(map);
+
+// ═══════════════════════════════════════════════════════════════
+//  TILA
+// ═══════════════════════════════════════════════════════════════
+
+const TUNNUS = "tunnus";
+
+// Oma luokitus → väri
+const OMA_VARIT = {
+  "A+": "#e31a1c",
+  "A":  "#ff7f00",
+  "B":  "#ffd700",
+  "C":  "#999999",
+};
+
+// Viranomaisen luokitus → väri
+const VIR_VARIT = {
+  "Suojelukohde":        "#e31a1c",
+  "Huomionarvoinen":     "#ff7f00",
+  "Ei erityisiä arvoja": "#999999",
+};
+const VIR_CSS = {
+  "Suojelukohde":        "lk-suojelukohde",
+  "Huomionarvoinen":     "lk-huomionarvoinen",
+  "Ei erityisiä arvoja": "lk-ei-arvoja",
+};
+
+let aktiivinen_teema = "oma";
+let sheetsData = null;      // null = ei ladattu vielä; {} = ladattu
+let geojsonData = null;
+let geojsonLayer = null;
+const featureData = {};     // tunnus → feature (popup-viitteeksi)
+
+// ═══════════════════════════════════════════════════════════════
+//  TEEMOITUS
+// ═══════════════════════════════════════════════════════════════
+
+function viimeisinLuokitus(tunnus) {
+  const rivit = (sheetsData || {})[tunnus];
+  return rivit && rivit.length ? rivit[rivit.length - 1].luokitus : null;
+}
+
+function pisteVari(props) {
+  const tunnus = props[TUNNUS];
+  if (aktiivinen_teema === "oma") {
+    return OMA_VARIT[props.luokitus] || "#1f78b4";
+  }
+  const lk = viimeisinLuokitus(tunnus);
+  return lk ? (VIR_VARIT[lk] || "#999999") : null; // null = ei arvioitu
+}
+
+function luoMarker(feature, latlng) {
+  const props = feature.properties;
+  const vari = pisteVari(props);
+
+  if (vari === null) {
+    // Ei arvioitu: valkoinen ympyrä + ?
+    return L.marker(latlng, {
+      icon: L.divIcon({
+        html: '<div style="width:16px;height:16px;border-radius:50%;background:white;border:2px solid #444;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:bold;line-height:1">?</div>',
+        className: "",
+        iconSize: [16, 16],
+        iconAnchor: [8, 8],
+      }),
+    });
+  }
+
+  return L.circleMarker(latlng, {
+    radius: 7,
+    fillColor: vari,
+    color: "#fff",
+    weight: 1,
+    opacity: 1,
+    fillOpacity: 0.85,
+  });
+}
+
+function paivitaLayer() {
+  if (!geojsonData) return;
+  if (geojsonLayer) map.removeLayer(geojsonLayer);
+  geojsonLayer = L.geoJSON(geojsonData, {
+    pointToLayer: luoMarker,
+    onEachFeature(feature, layer) {
+      featureData[feature.properties[TUNNUS]] = feature;
+      layer.on("click", () => avaaPopup(feature, layer));
+    },
+  }).addTo(map);
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  SHEETS-DATA
+// ═══════════════════════════════════════════════════════════════
+
+async function haeKaikkiSheets() {
+  if (sheetsData !== null) return;
+  try {
+    const resp = await fetch(CONFIG.SHEETS_URL);
+    const rivit = await resp.json();
+    sheetsData = {};
+    for (const r of rivit) {
+      (sheetsData[r.tunnus] = sheetsData[r.tunnus] || []).push(r);
+    }
+  } catch (e) {
+    console.warn("Sheets-haku (kaikki) epäonnistui:", e);
+    sheetsData = {};
+  }
+}
+
+async function paivitaSheetsYhdelle(tunnus) {
+  try {
+    const resp = await fetch(`${CONFIG.SHEETS_URL}?tunnus=${encodeURIComponent(tunnus)}`);
+    const rivit = await resp.json();
+    if (!sheetsData) sheetsData = {};
+    sheetsData[tunnus] = rivit;
+    return rivit;
+  } catch (e) {
+    return null;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  POPUP
+// ═══════════════════════════════════════════════════════════════
+
+const OHITA_KENTAT = new Set(["kuva1", "kuva2", "kuva3"]);
+
+function popupKuvat(props) {
+  const kuvat = [props.kuva1, props.kuva2, props.kuva3].filter(Boolean);
+  if (!kuvat.length) return "";
+  return `<div class="pu-kuvat">${kuvat.map(url =>
+    `<img src="${url}" alt="kuva" onclick="avaaLightbox('${url}')" />`
+  ).join("")}</div>`;
+}
+
+function popupAttribuutit(props) {
+  const rivit = Object.entries(props)
+    .filter(([k, v]) => !OHITA_KENTAT.has(k) && v !== null && v !== undefined && v !== "")
+    .map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`)
+    .join("");
+  return rivit ? `<div class="pu-attr"><table>${rivit}</table></div>` : "";
+}
+
+function popupViranomainenHTML(tunnus) {
+  const rivit = (sheetsData || {})[tunnus] || [];
+  const uusin = rivit[rivit.length - 1];
+  if (!uusin) {
+    return `<div class="pu-viranomainen">Ei viranomaisen luokitusta</div>`;
+  }
+  const css = VIR_CSS[uusin.luokitus] || "";
+  return `<div class="pu-viranomainen ${css}"><strong>${uusin.luokitus}</strong></div>`;
+}
+
+function popupKommentitHTML(tunnus) {
+  const rivit = (sheetsData || {})[tunnus] || [];
+  if (!rivit.length) {
+    return `<p class="pu-ei-kommentteja">Ei kommentteja.</p>`;
+  }
+  return rivit.map(r => `
+    <div class="pu-kommentti">
+      <div>${r.kommentti || ""}</div>
+      <div class="pu-kommentti-meta">${[r.tekija, r.paivamaara, r.luokitus].filter(Boolean).join(" · ")}</div>
+    </div>`).join("");
+}
+
+async function avaaPopup(feature, layer) {
+  const props  = feature.properties;
+  const tunnus = props[TUNNUS] || "";
+  const nimi   = props.nimi || props.name || tunnus;
+
+  const html = `
+    <div class="pu">
+      <div class="pu-otsikko">${nimi} <span class="pu-tunnus">(${tunnus})</span></div>
+      ${popupKuvat(props)}
+      ${popupAttribuutit(props)}
+      <div class="pu-kommentit">
+        <h4>Viranomaisen luokitus</h4>
+        <div id="pu-vir-${tunnus}" class="pu-viranomainen">Ladataan…</div>
+        <h4>Kommentit</h4>
+        <div id="pu-kom-${tunnus}">Ladataan…</div>
+      </div>
+      <div class="pu-lomake">
+        <h4>Lisää kommentti</h4>
+        <label>Kommentti</label>
+        <textarea id="lom-kom-${tunnus}"></textarea>
+        <label>Nimi / virasto</label>
+        <input type="text" id="lom-tek-${tunnus}" />
+        <label>Luokitus</label>
+        <select id="lom-lk-${tunnus}">
+          <option>Ei erityisiä arvoja</option>
+          <option>Huomionarvoinen</option>
+          <option>Suojelukohde</option>
+        </select>
+        <div class="pu-lomake-footer">
+          <button onclick="lahetaKommentti('${tunnus}')">Tallenna</button>
+          <span class="pu-lomake-viesti" id="lom-viesti-${tunnus}"></span>
+        </div>
+      </div>
+    </div>`;
+
+  layer.bindPopup(html, { maxWidth: 440, maxHeight: 520, autoPan: true }).openPopup();
+
+  const rivit = await paivitaSheetsYhdelle(tunnus);
+  const vEl = document.getElementById(`pu-vir-${tunnus}`);
+  const kEl = document.getElementById(`pu-kom-${tunnus}`);
+  if (rivit !== null) {
+    if (vEl) vEl.outerHTML = popupViranomainenHTML(tunnus);
+    if (kEl) kEl.innerHTML = popupKommentitHTML(tunnus);
+  } else {
+    if (kEl) kEl.innerHTML = `<span style="color:red;font-size:11px">Sheets-haku epäonnistui</span>`;
+  }
+}
+
+async function lahetaKommentti(tunnus) {
+  const kommentti = document.getElementById(`lom-kom-${tunnus}`).value.trim();
+  const tekija    = document.getElementById(`lom-tek-${tunnus}`).value.trim();
+  const luokitus  = document.getElementById(`lom-lk-${tunnus}`).value;
+  const viestiEl  = document.getElementById(`lom-viesti-${tunnus}`);
+  const nimi      = (featureData[tunnus] || {}).properties?.nimi || "";
+
+  if (!kommentti) { viestiEl.textContent = "Kirjoita kommentti."; return; }
+
+  viestiEl.textContent = "Tallennetaan…";
+  try {
+    // Content-Type: text/plain välttää CORS preflight -pyynnön GAS:ssa
+    const resp = await fetch(CONFIG.SHEETS_URL, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain" },
+      body: JSON.stringify({ tunnus, kommentti, tekija, luokitus, rakennus_nimi: nimi }),
+    });
+    if (!resp.ok) throw new Error(resp.status);
+
+    viestiEl.textContent = "Tallennettu ✓";
+    document.getElementById(`lom-kom-${tunnus}`).value = "";
+
+    // Päivitetään kommenttilista haulla
+    await paivitaSheetsYhdelle(tunnus);
+    const kEl = document.getElementById(`pu-kom-${tunnus}`);
+    if (kEl) kEl.innerHTML = popupKommentitHTML(tunnus);
+  } catch (e) {
+    viestiEl.textContent = "Virhe tallennuksessa.";
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  TEEMAPAINIKKEET (Leaflet custom control)
+// ═══════════════════════════════════════════════════════════════
+
+const TeemaControl = L.Control.extend({
+  onAdd() {
+    const div = L.DomUtil.create("div", "teema-control leaflet-bar");
+    div.innerHTML = `
+      <button id="teema-oma"          class="aktiivinen">Oma luokitus</button>
+      <button id="teema-viranomainen"              >Viranomaisen luokitus</button>`;
+    L.DomEvent.disableClickPropagation(div);
+
+    div.querySelector("#teema-oma").addEventListener("click", () => vaihdaTeema("oma"));
+    div.querySelector("#teema-viranomainen").addEventListener("click", () => vaihdaTeema("viranomainen"));
+    return div;
+  },
+});
+new TeemaControl({ position: "topleft" }).addTo(map);
+
+async function vaihdaTeema(teema) {
+  aktiivinen_teema = teema;
+  document.getElementById("teema-oma").classList.toggle("aktiivinen", teema === "oma");
+  document.getElementById("teema-viranomainen").classList.toggle("aktiivinen", teema === "viranomainen");
+  if (teema === "viranomainen") await haeKaikkiSheets();
+  paivitaLayer();
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  LIGHTBOX
+// ═══════════════════════════════════════════════════════════════
+
+function avaaLightbox(url) {
+  document.getElementById("lightbox-kuva").src = url;
+  document.getElementById("lightbox").classList.add("auki");
+}
+function suljeLightbox() {
+  document.getElementById("lightbox").classList.remove("auki");
+}
+document.getElementById("lightbox-sulje").addEventListener("click", suljeLightbox);
+document.getElementById("lightbox").addEventListener("click", e => {
+  if (e.target === e.currentTarget) suljeLightbox();
+});
+document.addEventListener("keydown", e => { if (e.key === "Escape") suljeLightbox(); });
+
+// ═══════════════════════════════════════════════════════════════
+//  LATAUS
+//  GeoJSON haetaan GitHub raw -URL:sta jotta toimii GitHub Pagesissa.
+//  GITHUB_RAW määritellään config.js:ssä.
+// ═══════════════════════════════════════════════════════════════
+
+const geojsonUrl = `${CONFIG.GITHUB_RAW}/projektit/${CONFIG.PROJEKTI}/data/kohteet.geojson`;
+
+fetch(geojsonUrl)
+  .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+  .then(data => {
+    geojsonData = data;
+    paivitaLayer();
+    if (geojsonLayer && geojsonLayer.getBounds().isValid()) {
+      map.fitBounds(geojsonLayer.getBounds(), { padding: [40, 40] });
+    }
+  })
+  .catch(e => console.error("GeoJSON-lataus epäonnistui:", e));
+
+</script>
+</body>
+</html>

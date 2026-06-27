@@ -1,0 +1,19 @@
+# Paikalliset konfiguraatiotiedostot — sisältävät API-avaimia
+docs/config.js
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# QGIS
+*.qgis3/
+*.bak
+*.lock
+
+# Käyttöjärjestelmä
+.DS_Store
+Thumbs.db
+desktop.ini
