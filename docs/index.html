@@ -138,7 +138,7 @@ const map = L.map("map", { crs, center: [62.4, 28.5], zoom: 9 });
 // ── Taustakartat ──────────────────────────────────────────────
 
 const MML_URL_POHJA =
-  "https://avoinkarttakuva.maanmittauslaitos.fi/avoin/wmts/1.0.0/{layer}/default/ETRS-TM35FIN/{z}/{y}/{x}.png?api-key={apikey}";
+  "https://avoin-karttakuva.maanmittauslaitos.fi/avoin/wmts/1.0.0/{layer}/default/ETRS-TM35FIN/{z}/{y}/{x}.png?api-key={apikey}";
 
 const mmlMaasto = L.tileLayer(MML_URL_POHJA, {
   layer: "maastokartta", apikey: CONFIG.MML_API_KEY,
