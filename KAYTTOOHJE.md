@@ -186,11 +186,12 @@ käsin projektin `config.json`:iin:
 
 ## Huomioitavaa
 
-- **MML-avain on julkisessa repossa.** `docs/config.js` on committoitu (README:n
-  vastaisesti) ja repo on julkinen, joten avain on kenen tahansa luettavissa.
-  Selainsovelluksessa avain paljastuu joka tapauksessa verkkopyynnöissä, joten oikea
-  suojaus on rajata avaimen sallitut viittaajat MML:n hallinnassa — ei tiedoston
-  poistaminen repostosta, sillä silloin julkaistu sivu lakkaisi toimimasta.
+- **MML-avain on julkinen eikä sitä voi piilottaa.** `docs/config.js` on committoitu,
+  koska Pages tarjoilee `docs/`-kansion suoraan repostosta; lisäksi selainsovelluksen
+  avain paljastuu joka tapauksessa karttaruutupyynnöistä. MML:n avaimille ei voi
+  asettaa verkkotunnus- tai viittaajarajausta, joten suojaus on: oma avain per
+  julkaisu, ja väärinkäyttötilanteessa uusi avain OmaTilistä + vanhan poisto
+  (ks. README, kohta 3).
 - Rakennusta kohti mahtuu **3 kuvaa** — kartan popup lukee kentät `kuva1`–`kuva3`.
 - GeoPackagea ei tallenneta repoon, joten pidä siitä huolta itse; pipeline lukee sen
   joka ajolla uudelleen ja rakentaa geojsonin sen pohjalta.

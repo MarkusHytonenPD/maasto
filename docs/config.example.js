@@ -1,9 +1,13 @@
 // Kopioi tämä tiedosto nimellä config.js ja täytä arvot.
-// config.js ei commitoidu — se on lisätty .gitignore:en.
+// HUOM: config.js commitoidaan — GitHub Pages tarjoilee docs/-kansion suoraan
+// repostosta, joten ilman tiedostoa julkaistu sivu ei toimisi.
 
 const CONFIG = {
-    // MML Avoin data -rajapinnan API-avain
-    // Hankinta: https://www.maanmittauslaitos.fi/rajapinnat/api-avaimet
+    // MML Avoin data -rajapinnan API-avain.
+    // Hankinta: https://www.maanmittauslaitos.fi/rajapinnat/api-avaimen-ohje
+    // Avain on selainsovelluksessa väistämättä julkinen eikä sille voi asettaa
+    // verkkotunnusrajausta. Käytä omaa avainta per julkaisu, ja jos avain joutuu
+    // väärinkäyttöön: luo uusi OmaTilissä, päivitä tähän, pushaa, poista vanha.
     MML_API_KEY: "KORVAA_TAHAN_MML_API_AVAIN",
 
     // Google Apps Script -endpoint (saadaan deploymentin jälkeen)

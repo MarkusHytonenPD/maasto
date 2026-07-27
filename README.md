@@ -12,7 +12,7 @@ Kenttäkuvista GitHub Pages -karttasivuksi. Käytössä QGIS, QField ja Python.
 maasto/
 ├── docs/                          ← GitHub Pages
 │   ├── index.html                 ← karttasivu
-│   ├── config.js                  ← EI commitoida (API-avaimet)
+│   ├── config.js                  ← commitoidaan: Pages tarvitsee sen (ks. MML-avain)
 │   ├── config.example.js          ← pohja config.js:lle
 │   └── apps_script.js             ← Google Apps Script -koodi
 │
@@ -51,9 +51,23 @@ Avaa `docs/config.js` tekstieditorissa ja täytä alla olevat arvot.
 
 ### 3. MML API-avain
 
-1. Kirjaudu osoitteessa [maanmittauslaitos.fi](https://www.maanmittauslaitos.fi/rajapinnat/api-avaimet)
+1. Kirjaudu OmaTiliin: [API-avaimen ohje](https://www.maanmittauslaitos.fi/rajapinnat/api-avaimen-ohje)
 2. Luo uusi API-avain (tuote: Karttakuva, taustakartta, maastokartta)
 3. Lisää avain `config.js`:n `MML_API_KEY`-kenttään
+
+**Avain on julkinen, eikä sitä voi piilottaa.** Kartta piirretään selaimessa, joten
+avain lähtee jokaisessa karttaruutupyynnössä ja on luettavissa kehittäjätyökaluista.
+`config.js` on siksi commitoitu — GitHub Pages tarjoilee `docs/`-kansion suoraan
+repostosta, eikä ilman tiedostoa julkaistu sivu toimisi. MML:n avaimille ei voi
+asettaa verkkotunnus- tai viittaajarajausta; OmaTilissä avaimen voi vain luoda ja
+poistaa. Käytännön suojaus on siis:
+
+- **Oma avain per sovellus.** Älä käytä samaa avainta useassa julkaisussa, jotta
+  yhden avaimen poistaminen ei kaada muita.
+- **Vaihda avain jos se joutuu väärinkäyttöön:** luo uusi avain OmaTilissä, päivitä
+  `docs/config.js`, pushaa, ja poista vanha avain. Vanha avain jää git-historiaan,
+  mutta poistettu avain ei toimi, joten historian siivoaminen ei ole tarpeen.
+- Avoimet rajapinnat ovat maksuttomia; avain on MML:lle käytön seurantaa varten.
 
 ### 4. Google Apps Script — kommenttien tallennus
 
