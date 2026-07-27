@@ -2,6 +2,10 @@
 
 Kenttäkuvista GitHub Pages -karttasivuksi. Käytössä QGIS, QField ja Python.
 
+> **Päivittäinen käyttö:** [KAYTTOOHJE.md](KAYTTOOHJE.md) — mikä ajetaan omalta
+> koneelta, mikä katsotaan GitHubista, työskentely erissä ja vianetsintä.
+> Tämä tiedosto kuvaa ensiasennuksen.
+
 ## Repon rakenne
 
 ```
@@ -113,6 +117,42 @@ Karttasivu toimii muuten normaalisti — vain kaavarasteri jää näkymättä.
 BasicAirData GPS Logger (Android) tallentaa GPX-ajat UTC:nä (`Z`-suffiksi).
 `pipeline.py` muuntaa ajat automaattisesti Helsingin paikalliseksi ajaksi,
 joten `aikaero_min`-kenttään syötetään vain kameran kellodrifti (yleensä 0).
+
+### Työskentely erissä
+
+Kuvia ja GPS-lokeja kertyy tyypillisesti useassa erässä. Pipelinen voi ajaa
+saman projektin päälle niin monta kertaa kuin haluaa:
+
+- **Kuvanumerointi jatkuu** siitä mihin edellinen ajo jäi (`ky_15_kuva1` →
+  `ky_15_kuva2`), ja `kohteet.geojson` rakennetaan joka ajolla koko
+  `kuvat/`-kansiosta — vanhat kuvat säilyvät linkeissä. Rakennusta kohti
+  mahtuu edelleen 3 kuvaa.
+- **Sama kuva ei kopioidu kahdesti.** Käsitellyt lähdekuvat kirjataan
+  tiedostoon `projektit/[projekti]/data/kasitellyt.json` (tunniste =
+  tiedostonimi + EXIF-kuvausaika, joka ei muutu geotägäyksessä). Jos sama kuva
+  on vahingossa mukana toisessakin ajossa, se ohitetaan merkinnällä
+  `↺ ... käsitelty jo aiemmin`.
+- **Kuvan korvaaminen:** poista kohdetiedosto `kuvat/`-kansiosta ja aja
+  uudelleen — kirjanpito tunnistaa kohteen kadonneeksi ja päästää kuvan läpi.
+- **Käsin sijoittelu** kirjaa lisäykset samaan kirjanpitoon, mutta ei estä
+  saman kuvan lisäämistä uudelleen — se on tietoinen valinta.
+
+Kirjanpito koskee vain sen käyttöönoton jälkeen ajettuja eriä; ennen sitä
+lisätyt kuvat eivät ole tiedostossa, joten vanhan kuvakansion ajaminen
+uudelleen tuottaisi niistä yhä duplikaatit.
+
+### Useita GPX-lokeja samalla ajolla
+
+GPS-loggeria ei kannata pitää päällä esimerkiksi yöllä, joten lokeja syntyy
+monta. Pipeline kysyy GPX:t rivi kerrallaan — voit antaa useita tiedostoja tai
+kansion, jolloin siitä otetaan kaikki `.gpx`-tiedostot. Pisteet yhdistetään
+aikajärjestykseen ja päällekkäiset aikaleimat karsitaan.
+
+Lokien väliin jää aukkoja (loggeri pois päältä). Pipeline **ei interpoloi
+pitkien aukkojen yli**: jos peräkkäisten GPX-pisteiden väli ylittää annetun
+rajan (oletus 10 min, kysytään ajon alussa), aukkoon osuva kuva ohitetaan
+varoituksella sen sijaan että se saisi keksityn sijainnin lokien väliltä.
+Havaitut aukot listataan ajon alussa.
 
 ### Useampi projekti
 

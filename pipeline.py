@@ -4,11 +4,19 @@ pipeline.py
 Rakennusdokumentoinnin pipeline — kenttäkuvista GitHub Pagesiin.
 
 Vaiheet:
-  1. GPX-geotägäys    (valinnainen, järjestelmäkameralle)
+  1. GPX-geotägäys    (valinnainen, järjestelmäkameralle; monta GPX:ää sallittu)
   2. Kuvien nimeäminen (EXIF GPS → lähin rakennus → ky_[tunnus]_kuva1.jpg)
   3. Git push          (kuvat)
   4. GeoJSON-vienti   (kuva1/2/3-sarakkeet täysillä URL:illa) + git push
   5. Yhteenveto
+
+Työskentely erissä:
+  Kuvia ja GPX-lokeja voi lisätä useassa ajossa. Kuvanumerointi jatkuu siitä
+  mihin edellinen ajo jäi, ja GeoJSON rakennetaan aina koko kuvat/-kansiosta.
+  Jo käsitellyt lähdekuvat kirjataan data/kasitellyt.json:iin, joten sama kuva
+  ei kopioidu kahdesti vaikka se olisi mukana useammassa ajossa.
+  GPX-lokeja voi antaa monta (tai kansion) — pisteet yhdistetään aikajärjestykseen,
+  eikä pitkien aukkojen (loggeri pois päältä) yli interpoloida.
 
 Vaatimukset:
   pip install geopandas pillow pyproj gpxpy piexif
@@ -62,6 +70,13 @@ GITHUB_BASE_URL = ""
 ETAISYYS_PUHELIN       = 60
 ETAISYYS_DRONE         = 300
 ETAISYYS_JARJ_KAMERA   = 300
+
+# Suurin GPX-pisteväli jonka yli interpoloidaan (minuuttia, kysytään ajon alussa).
+# Pidempi väli = loggeri on ollut pois päältä → kuvan sijaintia ei voi päätellä.
+MAX_GPX_AUKKO_MIN = 10
+
+# Kirjanpito jo käsitellyistä lähdekuvista (DATA_POLKU:n alla, menee gitiin)
+KASITELLYT_TIEDOSTO = "kasitellyt.json"
 
 # EXIF Make -tunnistus laitteelle
 _DRONE_MAKE = {"dji", "autel", "parrot", "skydio", "yuneec"}
@@ -163,56 +178,104 @@ def kirjoita_exif_gps(kuvatiedosto: Path, lat: float, lon: float) -> bool:
 #  VAIHE 1 — GPX-GEOTÄGÄYS
 # ══════════════════════════════════════════════════════════════════
 
-def _lataa_gpx_pisteet(gpx_polku: Path) -> list[tuple]:
+def _lataa_gpx_pisteet(gpx_polut: list[Path]) -> list[tuple]:
     """
-    Palauttaa [(naive_datetime_helsinki, lat, lon), ...] järjestettynä.
+    Lukee yhden tai useamman GPX:n ja palauttaa
+    [(naive_datetime_helsinki, lat, lon), ...] aikajärjestyksessä.
     GPX-ajat muunnetaan Helsingin paikalliseksi ajaksi (kesä/talvi automaattisesti),
     jotta vertailu kameran EXIF-aikaan (paikallinen, ei timezone-tietoa) toimii.
+    Useamman lokin pisteet yhdistetään; päällekkäiset aikaleimat karsitaan.
     """
-    with open(gpx_polku, encoding="utf-8") as f:
-        gpx = gpxpy.parse(f)
+    if isinstance(gpx_polut, (str, Path)):      # yksi polku käy myös sellaisenaan
+        gpx_polut = [Path(gpx_polut)]
+
     pisteet = []
-    for track in gpx.tracks:
-        for segment in track.segments:
-            for p in segment.points:
-                if p.time:
-                    if p.time.tzinfo is not None:
-                        # UTC tai muu eksplisiittinen timezone → muunna Helsinkiin
-                        t = p.time.astimezone(_HELSINKI).replace(tzinfo=None)
-                    else:
-                        # Ei timezone-tietoa — oletetaan jo paikallinen aika
-                        t = p.time.replace(tzinfo=None)
-                    pisteet.append((t, p.latitude, p.longitude))
+    for gpx_polku in gpx_polut:
+        try:
+            with open(gpx_polku, encoding="utf-8") as f:
+                gpx = gpxpy.parse(f)
+        except Exception as e:
+            print(f"  ⚠ {gpx_polku.name}: ei voitu lukea ({e}) — ohitetaan")
+            continue
+        ennen = len(pisteet)
+        for track in gpx.tracks:
+            for segment in track.segments:
+                for p in segment.points:
+                    if p.time:
+                        if p.time.tzinfo is not None:
+                            # UTC tai muu eksplisiittinen timezone → muunna Helsinkiin
+                            t = p.time.astimezone(_HELSINKI).replace(tzinfo=None)
+                        else:
+                            # Ei timezone-tietoa — oletetaan jo paikallinen aika
+                            t = p.time.replace(tzinfo=None)
+                        pisteet.append((t, p.latitude, p.longitude))
+        print(f"    {gpx_polku.name}: {len(pisteet) - ennen} pistettä")
+
     pisteet.sort(key=lambda x: x[0])
-    return pisteet
+
+    # Päällekkäin menevät lokit voivat sisältää saman hetken kahdesti
+    uniikit: list[tuple] = []
+    for p in pisteet:
+        if not uniikit or p[0] != uniikit[-1][0]:
+            uniikit.append(p)
+    if len(uniikit) < len(pisteet):
+        print(f"    ({len(pisteet) - len(uniikit)} päällekkäistä aikaleimaa karsittu)")
+    return uniikit
 
 
-def _interpoloi(pisteet: list[tuple], aikaleima: datetime.datetime):
-    """Lineaarinen interpolointi. Palauttaa (lat, lon) tai None."""
+def _aukot(pisteet: list[tuple], max_aukko_s: float) -> list[tuple]:
+    """Palauttaa [(alku, loppu, kesto_min), ...] väleistä jotka ylittävät rajan."""
+    tulos = []
+    for i in range(len(pisteet) - 1):
+        dt = (pisteet[i + 1][0] - pisteet[i][0]).total_seconds()
+        if dt > max_aukko_s:
+            tulos.append((pisteet[i][0], pisteet[i + 1][0], dt / 60))
+    return tulos
+
+
+def _interpoloi(pisteet: list[tuple], aikaleima: datetime.datetime, max_aukko_s: float):
+    """
+    Lineaarinen interpolointi. Palauttaa ((lat, lon), None) tai (None, syy).
+    Pisteväliä joka on pidempi kuin max_aukko_s ei interpoloida yli — silloin
+    loggeri on ollut pois päältä eikä kuvan sijaintia voi päätellä.
+    """
     if not pisteet:
-        return None
+        return None, "ei GPX-pisteitä"
     if aikaleima < pisteet[0][0] or aikaleima > pisteet[-1][0]:
-        return None
+        return None, "aikaleima GPX-lokien ulkopuolella"
     for i in range(len(pisteet) - 1):
         t0, lat0, lon0 = pisteet[i]
         t1, lat1, lon1 = pisteet[i + 1]
         if t0 <= aikaleima <= t1:
             dt = (t1 - t0).total_seconds()
-            f  = (aikaleima - t0).total_seconds() / dt if dt else 0
-            return lat0 + f * (lat1 - lat0), lon0 + f * (lon1 - lon0)
-    return None
+            if dt > max_aukko_s:
+                return None, (f"GPX-aukko {dt / 60:.0f} min ({t0:%d.%m. %H:%M}–{t1:%d.%m. %H:%M}) "
+                              f"— loggeri pois päältä?")
+            f = (aikaleima - t0).total_seconds() / dt if dt else 0
+            return (lat0 + f * (lat1 - lat0), lon0 + f * (lon1 - lon0)), None
+    return None, "ei sopivaa GPX-väliä"
 
 
-def geotaggeri(kuvakansio: Path, gpx_polku: Path, aikaero_min: int):
+def geotaggeri(kuvakansio: Path, gpx_polut: list[Path], aikaero_min: int,
+               max_aukko_min: int = MAX_GPX_AUKKO_MIN):
     """Vaihe 1: kirjoittaa GPS-koordinaatin järjestelmäkamerakuvien EXIF:iin."""
     print("\n--- Vaihe 1: GPX-geotägäys ---")
 
-    pisteet = _lataa_gpx_pisteet(gpx_polku)
+    pisteet = _lataa_gpx_pisteet(gpx_polut)
     if not pisteet:
-        print("  VIRHE: GPX-tiedostossa ei ole trackpisteitä.")
+        print("  VIRHE: GPX-tiedostoissa ei ole trackpisteitä.")
         return
 
-    print(f"  {len(pisteet)} GPX-pistettä ladattu")
+    max_aukko_s = max_aukko_min * 60
+    print(f"  {len(pisteet)} GPX-pistettä ladattu "
+          f"({pisteet[0][0]:%d.%m. %H:%M} – {pisteet[-1][0]:%d.%m. %H:%M})")
+    aukot = _aukot(pisteet, max_aukko_s)
+    if aukot:
+        print(f"  {len(aukot)} aukkoa yli {max_aukko_min} min — näiden yli ei interpoloida:")
+        for alku, loppu, kesto in aukot[:5]:
+            print(f"    {alku:%d.%m. %H:%M} – {loppu:%d.%m. %H:%M}  ({kesto:.0f} min)")
+        if len(aukot) > 5:
+            print(f"    ... ja {len(aukot) - 5} muuta")
     if aikaero_min:
         print(f"  Aikaerokorjaus: {aikaero_min:+d} min")
 
@@ -230,9 +293,9 @@ def geotaggeri(kuvakansio: Path, gpx_polku: Path, aikaero_min: int):
         # GPX-pisteet ovat jo Helsingin ajassa; aikaero_min korjaa
         # vain kameran kellon driftin suhteessa puhelimeen.
         korjattu = ts - datetime.timedelta(minutes=aikaero_min)
-        koordinaatti = _interpoloi(pisteet, korjattu)
+        koordinaatti, syy = _interpoloi(pisteet, korjattu, max_aukko_s)
         if not koordinaatti:
-            print(f"  ⚠ {kuva.name}: aikaleima {korjattu} GPX-radan ulkopuolella — ohitetaan")
+            print(f"  ⚠ {kuva.name} ({korjattu:%d.%m. %H:%M}): {syy} — ohitetaan")
             ohitettu += 1
             continue
 
@@ -292,11 +355,76 @@ def _seuraava_numero(tunnus: str) -> int | None:
     return None
 
 
+# ══════════════════════════════════════════════════════════════════
+#  KÄSITELTYJEN LÄHDEKUVIEN KIRJANPITO (duplikaattisuoja erissä ajettaessa)
+# ══════════════════════════════════════════════════════════════════
+
+def _kuva_avain(kuva: Path) -> str:
+    """
+    Lähdekuvan tunniste: tiedostonimi + EXIF-kuvausaika. Aikaleima ei muutu
+    vaikka geotägäys kirjoittaisi kuvaan GPS:n (tiedostokoko muuttuisi), joten
+    sama kuva tunnistetaan myös geotägäyksen jälkeen. Ilman aikaleimaa
+    (näitä geotägäys ei muuta) käytetään tiedostokokoa.
+    """
+    ts = lue_exif_aikaleima(kuva)
+    if ts:
+        return f"{kuva.name.lower()}|{ts.isoformat()}"
+    try:
+        return f"{kuva.name.lower()}|koko:{kuva.stat().st_size}"
+    except OSError:
+        return kuva.name.lower()
+
+
+def _lue_kasitellyt() -> dict:
+    """Lukee data/kasitellyt.json → {avain: {kohde, tunnus, lisatty}}."""
+    polku = DATA_POLKU / KASITELLYT_TIEDOSTO
+    if not polku.exists():
+        return {}
+    try:
+        return json.loads(polku.read_text(encoding="utf-8")).get("kuvat", {})
+    except Exception as e:
+        print(f"  ⚠ {KASITELLYT_TIEDOSTO} ei aukea ({e}) — aloitetaan tyhjästä kirjanpidosta")
+        return {}
+
+
+def _kirjoita_kasitellyt(kasitellyt: dict):
+    DATA_POLKU.mkdir(parents=True, exist_ok=True)
+    (DATA_POLKU / KASITELLYT_TIEDOSTO).write_text(
+        json.dumps({"versio": 1, "kuvat": kasitellyt}, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+
+def _merkitse_kasitellyksi(kasitellyt: dict, avain: str, kohde: str, tunnus: str):
+    kasitellyt[avain] = {
+        "kohde":   kohde,
+        "tunnus":  tunnus,
+        "lisatty": datetime.datetime.now().replace(microsecond=0).isoformat(),
+    }
+    _kirjoita_kasitellyt(kasitellyt)
+
+
+def _jo_kasitelty(kasitellyt: dict, avain: str) -> str | None:
+    """
+    Palauttaa kohdetiedoston nimen jos kuva on jo viety JA tiedosto on yhä
+    paikallaan. Jos kohde on poistettu käsin (= halutaan korvata), palauttaa
+    None eli kuva saa mennä uudelleen läpi.
+    """
+    tieto = kasitellyt.get(avain)
+    if not tieto:
+        return None
+    kohde = tieto.get("kohde", "")
+    if kohde and (KUVA_POLKU / kohde).exists():
+        return kohde
+    return None
+
+
 def nimeä_kuvat(kuvakansio: Path, gdf, etaisyydet: dict) -> dict:
     """
     Vaihe 2: nimeää kuvat ja kopioi KUVA_POLKU:hun.
     etaisyydet = {"puhelin": m, "drone": m, "jarjestelmakamera": m}
-    Palauttaa tilastot {ok, ohitettu, taynna}.
+    Aiemmissa ajoissa käsitellyt lähdekuvat ohitetaan (data/kasitellyt.json).
+    Palauttaa tilastot {ok, ohitettu, taynna, duplikaatti}.
     """
     print("\n--- Vaihe 2: Kuvien nimeäminen ---")
     KUVA_POLKU.mkdir(parents=True, exist_ok=True)
@@ -304,11 +432,22 @@ def nimeä_kuvat(kuvakansio: Path, gdf, etaisyydet: dict) -> dict:
     kuvat = sorted(kuvakansio.glob("*.jpg")) + sorted(kuvakansio.glob("*.JPG"))
     if not kuvat:
         print("  Kansiossa ei ole .jpg-tiedostoja.")
-        return {"ok": 0, "ohitettu": 0, "taynna": 0}
+        return {"ok": 0, "ohitettu": 0, "taynna": 0, "duplikaatti": 0}
 
-    ok = ohitettu = taynna = 0
+    kasitellyt = _lue_kasitellyt()
+    if kasitellyt:
+        print(f"  Kirjanpidossa {len(kasitellyt)} aiemmin käsiteltyä kuvaa")
+
+    ok = ohitettu = taynna = duplikaatti = 0
 
     for kuva in kuvat:
+        avain  = _kuva_avain(kuva)
+        aiempi = _jo_kasitelty(kasitellyt, avain)
+        if aiempi:
+            print(f"  ↺ {kuva.name}: käsitelty jo aiemmin → {aiempi} — ohitetaan")
+            duplikaatti += 1
+            continue
+
         gps = lue_exif_gps(kuva)
         if not gps:
             print(f"  ⚠ {kuva.name}: ei GPS EXIF:ssä — ohitetaan")
@@ -335,11 +474,13 @@ def nimeä_kuvat(kuvakansio: Path, gdf, etaisyydet: dict) -> dict:
 
         uusi_nimi = f"ky_{tunnus}_kuva{n}.jpg".lower()
         shutil.copy2(kuva, KUVA_POLKU / uusi_nimi)
+        _merkitse_kasitellyksi(kasitellyt, avain, uusi_nimi, tunnus)
         print(f"  ✓ {kuva.name} [{laite}] → {uusi_nimi}  (tunnus={tunnus}, {etaisyys} m)")
         ok += 1
 
-    print(f"  Nimetty: {ok}, ohitettu: {ohitettu}, täynnä: {taynna}")
-    return {"ok": ok, "ohitettu": ohitettu, "taynna": taynna}
+    print(f"  Nimetty: {ok}, ohitettu: {ohitettu}, täynnä: {taynna}, "
+          f"jo käsitelty: {duplikaatti}")
+    return {"ok": ok, "ohitettu": ohitettu, "taynna": taynna, "duplikaatti": duplikaatti}
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -488,13 +629,17 @@ def sijoita_käsin(gdf) -> int:
     """
     Käyttäjä antaa tunnuksen ja kuvan polun toistuvasti.
     Kopioi kuvan KUVA_POLKU:hun seuraavaan vapaaseen numeroon.
+    Lisäys kirjataan kirjanpitoon, jotta pipeline-ajo ei kopioi samaa kuvaa
+    uudelleen. Käsin lisättäessä duplikaatista vain varoitetaan — valinta on
+    tietoinen, joten se ei estä.
     Palauttaa lisättyjen kuvien määrän.
     """
     print("\n--- Käsin sijoittelu ---")
     print("  Anna tunnus ja kuvan polku. Tyhjä tunnus lopettaa.")
     KUVA_POLKU.mkdir(parents=True, exist_ok=True)
 
-    tunnukset = set(gdf[TUNNUS_SARAKE].astype(str))
+    tunnukset  = set(gdf[TUNNUS_SARAKE].astype(str))
+    kasitellyt = _lue_kasitellyt()
     lisatty = 0
 
     while True:
@@ -519,8 +664,14 @@ def sijoita_käsin(gdf) -> int:
             print(f"  ⚠ Tunnuksella {tunnus} on jo 3 kuvaa — ei lisätä")
             continue
 
+        avain  = _kuva_avain(kuva)
+        aiempi = _jo_kasitelty(kasitellyt, avain)
+        if aiempi:
+            print(f"  ⚠ Sama kuva on jo viety nimellä {aiempi} — lisätään silti")
+
         uusi_nimi = f"ky_{tunnus}_kuva{n}.jpg".lower()
         shutil.copy2(kuva, KUVA_POLKU / uusi_nimi)
+        _merkitse_kasitellyksi(kasitellyt, avain, uusi_nimi, tunnus)
         print(f"  ✓ {kuva.name} → {uusi_nimi}")
         lisatty += 1
 
@@ -531,6 +682,41 @@ def sijoita_käsin(gdf) -> int:
 # ══════════════════════════════════════════════════════════════════
 #  PÄÄOHJELMA
 # ══════════════════════════════════════════════════════════════════
+
+def _kysy_gpx_polut() -> list[Path]:
+    """
+    Kysyy GPX-tiedostoja rivi kerrallaan — loggeri tuottaa useita lokeja
+    (esim. yksi per päivä). Kansiopolku hyväksytään: siitä otetaan kaikki
+    .gpx-tiedostot. Tyhjä rivi lopettaa.
+    """
+    print("\nGPX-tiedostot — yksi polku per rivi, tai kansio (kaikki sen .gpx-tiedostot).")
+    print("Tyhjä rivi lopettaa.")
+    polut: list[Path] = []
+    while True:
+        syote = input("  > ").strip().strip('"')
+        if not syote:
+            break
+        polku = Path(syote)
+        if polku.is_dir():
+            loydetyt = sorted(set(polku.glob("*.gpx")) | set(polku.glob("*.GPX")))
+            if not loydetyt:
+                print(f"    ⚠ Kansiossa ei ole .gpx-tiedostoja: {polku}")
+                continue
+            for g in loydetyt:
+                print(f"    + {g.name}")
+            polut.extend(loydetyt)
+        elif polku.is_file():
+            print(f"    + {polku.name}")
+            polut.append(polku)
+        else:
+            print(f"    ⚠ Ei löydy: {polku}")
+
+    # Sama tiedosto voi tulla sekä suoraan että kansion kautta
+    uniikit = list(dict.fromkeys(p.resolve() for p in polut))
+    if uniikit:
+        print(f"  Yhteensä {len(uniikit)} GPX-tiedostoa")
+    return uniikit
+
 
 def main():
     global PROJEKTI, PROJEKTI_POLKU, KUVA_POLKU, DATA_POLKU, GITHUB_BASE_URL
@@ -620,19 +806,19 @@ def main():
             input("Paina Enter sulkeaksesi...")
             return
 
-        gpx_polku   = None
-        aikaero_min = 0
-        if input("\nOnko mukana GPX-tiedosto järjestelmäkameralle? (k/e): ").strip().lower() == "k":
-            gpx_polku_str = input("GPX-tiedoston polku:\n> ").strip().strip('"')
-            gpx_polku = Path(gpx_polku_str)
-            if not gpx_polku.is_file():
-                print(f"VIRHE: GPX-tiedostoa ei löydy: {gpx_polku}")
+        gpx_polut     = []
+        aikaero_min   = 0
+        max_aukko_min = MAX_GPX_AUKKO_MIN
+        if input("\nOnko mukana GPX-tiedostoja järjestelmäkameralle? (k/e): ").strip().lower() == "k":
+            gpx_polut = _kysy_gpx_polut()
+            if not gpx_polut:
+                print("VIRHE: Yhtään GPX-tiedostoa ei annettu.")
                 input("Paina Enter sulkeaksesi...")
                 return
             try:
                 aikaero_min = int(
                     input(
-                        "Kameran kellodrifti minuutteina (0 jos synkronoitu puhelimeen):\n"
+                        "\nKameran kellodrifti minuutteina (0 jos synkronoitu puhelimeen):\n"
                         "  Aikavyöhyke hoidetaan automaattisesti.\n> "
                     ).strip()
                 )
@@ -640,9 +826,20 @@ def main():
                 print("VIRHE: Aikaero pitää olla kokonaisluku.")
                 input("Paina Enter sulkeaksesi...")
                 return
+            try:
+                arvo = input(
+                    f"\nSuurin sallittu aukko GPX-pisteiden välissä minuutteina [{MAX_GPX_AUKKO_MIN}]:\n"
+                    "  Pidempien aukkojen (loggeri pois päältä esim. yöksi) yli ei\n"
+                    "  interpoloida — niihin osuvat kuvat ohitetaan.\n> "
+                ).strip()
+                max_aukko_min = int(arvo) if arvo else MAX_GPX_AUKKO_MIN
+            except ValueError:
+                print("VIRHE: Aukon pitää olla kokonaisluku.")
+                input("Paina Enter sulkeaksesi...")
+                return
 
-        if gpx_polku:
-            geotaggeri(kuvakansio, gpx_polku, aikaero_min)
+        if gpx_polut:
+            geotaggeri(kuvakansio, gpx_polut, aikaero_min, max_aukko_min)
 
         tilastot = nimeä_kuvat(kuvakansio, gdf_3067, etaisyydet)
         kuvia_lisatty = tilastot["ok"]
@@ -668,7 +865,7 @@ def main():
                 f"projektit/{PROJEKTI}/kuvat/",
             )
 
-        tilastot = {"ok": kuvia_lisatty, "ohitettu": 0, "taynna": 0}
+        tilastot = {"ok": kuvia_lisatty, "ohitettu": 0, "taynna": 0, "duplikaatti": 0}
 
     # ── YHTEINEN LOPPU: GEOJSON + PUSH ────────────────────────────
 
@@ -688,6 +885,8 @@ def main():
         print(f"  Ohitettu:            {tilastot['ohitettu']}  (ei GPS tai ei rakennusta lähellä)")
     if tilastot.get("taynna"):
         print(f"  Täynnä:              {tilastot['taynna']}  (rakennuksella jo 3 kuvaa)")
+    if tilastot.get("duplikaatti"):
+        print(f"  Jo käsitelty:        {tilastot['duplikaatti']}  (viety jo aiemmassa ajossa)")
     print(f"  Rakennuksia kuvilla: {geojson_tilastot['kuvilla']} / {geojson_tilastot['rakennuksia']}")
     print("=" * 60)
     input("\nPaina Enter sulkeaksesi...")
