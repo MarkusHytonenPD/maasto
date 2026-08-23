@@ -1,0 +1,650 @@
+{
+  "versio": 1,
+  "kuvat": {
+    "jpeg_20260813065841475.jpg|koko:2557940": {
+      "kohde": "ky_9_kuva1.jpg",
+      "tunnus": "9",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260813071924925.jpg|koko:2203054": {
+      "kohde": "ky_9_kuva2.jpg",
+      "tunnus": "9",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260813072003143.jpg|koko:2455848": {
+      "kohde": "ky_9_kuva3.jpg",
+      "tunnus": "9",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260813073307608.jpg|koko:3244388": {
+      "kohde": "ky_56_kuva1.jpg",
+      "tunnus": "56",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260813073342993.jpg|koko:2837897": {
+      "kohde": "ky_56_kuva2.jpg",
+      "tunnus": "56",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260813073418095.jpg|koko:2352119": {
+      "kohde": "ky_56_kuva3.jpg",
+      "tunnus": "56",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260813075246226.jpg|koko:2812773": {
+      "kohde": "ky_8_kuva1.jpg",
+      "tunnus": "8",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260813075340165.jpg|koko:3013746": {
+      "kohde": "ky_8_kuva2.jpg",
+      "tunnus": "8",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260813075926666.jpg|koko:3307244": {
+      "kohde": "ky_8_kuva3.jpg",
+      "tunnus": "8",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260813090052461.jpg|koko:2860668": {
+      "kohde": "ky_7_kuva1.jpg",
+      "tunnus": "7",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260813090240672.jpg|koko:2821797": {
+      "kohde": "ky_7_kuva2.jpg",
+      "tunnus": "7",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260813094439947.jpg|koko:3026015": {
+      "kohde": "ky_13_kuva1.jpg",
+      "tunnus": "13",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260813094858156.jpg|koko:2608981": {
+      "kohde": "ky_13_kuva2.jpg",
+      "tunnus": "13",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260813095011724.jpg|koko:2751991": {
+      "kohde": "ky_13_kuva3.jpg",
+      "tunnus": "13",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260813095746223.jpg|koko:2486883": {
+      "kohde": "ky_45_kuva1.jpg",
+      "tunnus": "45",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260813095757901.jpg|koko:2621660": {
+      "kohde": "ky_45_kuva2.jpg",
+      "tunnus": "45",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260813100526468.jpg|koko:1939918": {
+      "kohde": "ky_21_kuva1.jpg",
+      "tunnus": "21",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260813100618741.jpg|koko:2212157": {
+      "kohde": "ky_21_kuva2.jpg",
+      "tunnus": "21",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260813101252718.jpg|koko:2763995": {
+      "kohde": "ky_12_kuva1.jpg",
+      "tunnus": "12",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260813101323589.jpg|koko:2744008": {
+      "kohde": "ky_12_kuva2.jpg",
+      "tunnus": "12",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260813101513786.jpg|koko:2516487": {
+      "kohde": "ky_12_kuva3.jpg",
+      "tunnus": "12",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260813102153134.jpg|koko:1901166": {
+      "kohde": "ky_20_kuva1.jpg",
+      "tunnus": "20",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260813103558540.jpg|koko:2238977": {
+      "kohde": "ky_5_kuva1.jpg",
+      "tunnus": "5",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260813104129501.jpg|koko:2305316": {
+      "kohde": "ky_5_kuva2.jpg",
+      "tunnus": "5",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260813104157086.jpg|koko:2308366": {
+      "kohde": "ky_5_kuva3.jpg",
+      "tunnus": "5",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260813105332808.jpg|koko:2383116": {
+      "kohde": "ky_49_kuva1.jpg",
+      "tunnus": "49",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260813105358062.jpg|koko:1622719": {
+      "kohde": "ky_49_kuva2.jpg",
+      "tunnus": "49",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260813110827831.jpg|koko:2330275": {
+      "kohde": "ky_39_kuva1.jpg",
+      "tunnus": "39",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260813111038068.jpg|koko:2870628": {
+      "kohde": "ky_39_kuva2.jpg",
+      "tunnus": "39",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260813111130721.jpg|koko:2606827": {
+      "kohde": "ky_39_kuva3.jpg",
+      "tunnus": "39",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260814094624187.jpg|koko:2518926": {
+      "kohde": "ky_6_kuva1.jpg",
+      "tunnus": "6",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260814094726657.jpg|koko:2795100": {
+      "kohde": "ky_6_kuva2.jpg",
+      "tunnus": "6",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260814094936743.jpg|koko:2739863": {
+      "kohde": "ky_6_kuva3.jpg",
+      "tunnus": "6",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260814101617679.jpg|koko:1855035": {
+      "kohde": "ky_14_kuva1.jpg",
+      "tunnus": "14",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260814103405590.jpg|koko:2847229": {
+      "kohde": "ky_25_kuva1.jpg",
+      "tunnus": "25",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260814110743457.jpg|koko:2640831": {
+      "kohde": "ky_22_kuva1.jpg",
+      "tunnus": "22",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260814110824170.jpg|koko:2238181": {
+      "kohde": "ky_22_kuva2.jpg",
+      "tunnus": "22",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260814112338840.jpg|koko:2341252": {
+      "kohde": "ky_25_kuva2.jpg",
+      "tunnus": "25",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260814112908447.jpg|koko:2394254": {
+      "kohde": "ky_22_kuva3.jpg",
+      "tunnus": "22",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260814120222596.jpg|koko:2265368": {
+      "kohde": "ky_59_kuva1.jpg",
+      "tunnus": "59",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260814120257049.jpg|koko:2438220": {
+      "kohde": "ky_59_kuva2.jpg",
+      "tunnus": "59",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260814120332545.jpg|koko:1834425": {
+      "kohde": "ky_59_kuva3.jpg",
+      "tunnus": "59",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260814124911693.jpg|koko:2690313": {
+      "kohde": "ky_10_kuva1.jpg",
+      "tunnus": "10",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260814125053740.jpg|koko:2435727": {
+      "kohde": "ky_10_kuva2.jpg",
+      "tunnus": "10",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260815101335918.jpg|koko:2568781": {
+      "kohde": "ky_60_kuva1.jpg",
+      "tunnus": "60",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260815101357258.jpg|koko:2394737": {
+      "kohde": "ky_60_kuva2.jpg",
+      "tunnus": "60",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260815102529235.jpg|2026-08-15T13:23:23": {
+      "kohde": "ky_34_kuva1.jpg",
+      "tunnus": "34",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260815105857649.jpg|2026-08-15T13:36:48": {
+      "kohde": "ky_55_kuva1.jpg",
+      "tunnus": "55",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260815110308170.jpg|koko:2199450": {
+      "kohde": "ky_16_kuva1.jpg",
+      "tunnus": "16",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260815112221098.jpg|2026-08-15T14:19:25": {
+      "kohde": "ky_15_kuva1.jpg",
+      "tunnus": "15",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260815112232322.jpg|2026-08-15T14:20:58": {
+      "kohde": "ky_15_kuva2.jpg",
+      "tunnus": "15",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260815112254221.jpg|2026-08-15T14:18:56": {
+      "kohde": "ky_15_kuva3.jpg",
+      "tunnus": "15",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260817085048588.jpg|2026-08-17T11:43:16": {
+      "kohde": "ky_48_kuva1.jpg",
+      "tunnus": "48",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260817090303868.jpg|koko:2138291": {
+      "kohde": "ky_37_kuva1.jpg",
+      "tunnus": "37",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260817090345983.jpg|koko:1908057": {
+      "kohde": "ky_37_kuva2.jpg",
+      "tunnus": "37",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260817090431645.jpg|koko:1797505": {
+      "kohde": "ky_37_kuva3.jpg",
+      "tunnus": "37",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260817095843431.jpg|2026-08-17T12:54:54": {
+      "kohde": "ky_30_kuva1.jpg",
+      "tunnus": "30",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260817095852733.jpg|2026-08-17T12:57:10": {
+      "kohde": "ky_30_kuva2.jpg",
+      "tunnus": "30",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260817100532765.jpg|2026-08-17T12:43:28": {
+      "kohde": "ky_44_kuva1.jpg",
+      "tunnus": "44",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260817112940462.jpg|2026-08-17T14:05:57": {
+      "kohde": "ky_50_kuva1.jpg",
+      "tunnus": "50",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260817112956080.jpg|2026-08-17T13:54:00": {
+      "kohde": "ky_50_kuva2.jpg",
+      "tunnus": "50",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260817113005265.jpg|2026-08-17T13:53:34": {
+      "kohde": "ky_50_kuva3.jpg",
+      "tunnus": "50",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260817114347088.jpg|2026-08-17T14:43:03": {
+      "kohde": "ky_41_kuva1.jpg",
+      "tunnus": "41",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260817114354327.jpg|2026-08-17T14:43:15": {
+      "kohde": "ky_41_kuva2.jpg",
+      "tunnus": "41",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260817114808900.jpg|koko:2568573": {
+      "kohde": "ky_63_kuva1.jpg",
+      "tunnus": "63",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260817115614423.jpg|2026-08-17T14:53:52": {
+      "kohde": "ky_63_kuva2.jpg",
+      "tunnus": "63",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260817120940614.jpg|2026-08-17T15:02:36": {
+      "kohde": "ky_31_kuva1.jpg",
+      "tunnus": "31",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260817121018876.jpg|2026-08-17T15:04:23": {
+      "kohde": "ky_31_kuva2.jpg",
+      "tunnus": "31",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260817123206581.jpg|koko:1756404": {
+      "kohde": "ky_27_kuva1.jpg",
+      "tunnus": "27",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260817123303319.jpg|koko:2228857": {
+      "kohde": "ky_27_kuva2.jpg",
+      "tunnus": "27",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260817123509017.jpg|koko:2266705": {
+      "kohde": "ky_47_kuva1.jpg",
+      "tunnus": "47",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260817123551342.jpg|koko:2103008": {
+      "kohde": "ky_47_kuva2.jpg",
+      "tunnus": "47",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260817123618215.jpg|koko:2553129": {
+      "kohde": "ky_47_kuva3.jpg",
+      "tunnus": "47",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260818055602073.jpg|koko:2131439": {
+      "kohde": "ky_4_kuva1.jpg",
+      "tunnus": "4",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260818055721357.jpg|koko:2310667": {
+      "kohde": "ky_4_kuva2.jpg",
+      "tunnus": "4",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260818062422766.jpg|koko:2932732": {
+      "kohde": "ky_58_kuva1.jpg",
+      "tunnus": "58",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260818062857547.jpg|2026-08-18T09:27:57": {
+      "kohde": "ky_58_kuva2.jpg",
+      "tunnus": "58",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260818064201403.jpg|koko:3096757": {
+      "kohde": "ky_58_kuva3.jpg",
+      "tunnus": "58",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260818065907880.jpg|2026-08-18T09:57:58": {
+      "kohde": "ky_28_kuva1.jpg",
+      "tunnus": "28",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260818072632260.jpg|koko:2680654": {
+      "kohde": "ky_2_kuva1.jpg",
+      "tunnus": "2",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260818072934131.jpg|koko:2816792": {
+      "kohde": "ky_2_kuva2.jpg",
+      "tunnus": "2",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260818073010555.jpg|koko:2150678": {
+      "kohde": "ky_2_kuva3.jpg",
+      "tunnus": "2",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260818074827057.jpg|2026-08-18T10:46:38": {
+      "kohde": "ky_62_kuva1.jpg",
+      "tunnus": "62",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260818074839056.jpg|2026-08-18T10:46:46": {
+      "kohde": "ky_62_kuva2.jpg",
+      "tunnus": "62",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260818074911622.jpg|2026-08-18T10:46:38": {
+      "kohde": "ky_62_kuva3.jpg",
+      "tunnus": "62",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260818090024694.jpg|2026-08-18T11:59:24": {
+      "kohde": "ky_40_kuva1.jpg",
+      "tunnus": "40",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260818090047024.jpg|2026-08-18T11:08:45": {
+      "kohde": "ky_36_kuva1.jpg",
+      "tunnus": "36",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260818090104971.jpg|2026-08-18T11:36:43": {
+      "kohde": "ky_36_kuva2.jpg",
+      "tunnus": "36",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260818090124469.jpg|2026-08-18T11:56:52": {
+      "kohde": "ky_36_kuva3.jpg",
+      "tunnus": "36",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260819055720105.jpg|2026-08-19T08:55:01": {
+      "kohde": "ky_51_kuva1.jpg",
+      "tunnus": "51",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260819061444252.jpg|koko:2100509": {
+      "kohde": "ky_42_kuva1.jpg",
+      "tunnus": "42",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260819065523232.jpg|koko:2189134": {
+      "kohde": "ky_33_kuva1.jpg",
+      "tunnus": "33",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260819065606609.jpg|koko:2146970": {
+      "kohde": "ky_33_kuva2.jpg",
+      "tunnus": "33",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260819075427417.jpg|2026-08-19T10:51:10": {
+      "kohde": "ky_1_kuva1.jpg",
+      "tunnus": "1",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260819083242815.jpg|2026-08-19T11:30:29": {
+      "kohde": "ky_46_kuva1.jpg",
+      "tunnus": "46",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260819083250777.jpg|2026-08-19T11:31:04": {
+      "kohde": "ky_46_kuva2.jpg",
+      "tunnus": "46",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260819084136667.jpg|koko:2373356": {
+      "kohde": "ky_17_kuva1.jpg",
+      "tunnus": "17",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260819084148410.jpg|koko:2324348": {
+      "kohde": "ky_17_kuva2.jpg",
+      "tunnus": "17",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260819084219250.jpg|koko:2267045": {
+      "kohde": "ky_17_kuva3.jpg",
+      "tunnus": "17",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260819091737268.jpg|koko:2827891": {
+      "kohde": "ky_61_kuva1.jpg",
+      "tunnus": "61",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260819091818134.jpg|koko:2480785": {
+      "kohde": "ky_61_kuva2.jpg",
+      "tunnus": "61",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260819092120607.jpg|koko:2495626": {
+      "kohde": "ky_61_kuva3.jpg",
+      "tunnus": "61",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260819093151179.jpg|koko:1947891": {
+      "kohde": "ky_32_kuva1.jpg",
+      "tunnus": "32",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260819093229825.jpg|koko:2151131": {
+      "kohde": "ky_32_kuva2.jpg",
+      "tunnus": "32",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260819093309203.jpg|koko:1893162": {
+      "kohde": "ky_32_kuva3.jpg",
+      "tunnus": "32",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260819094644795.jpg|2026-08-19T12:45:28": {
+      "kohde": "ky_43_kuva1.jpg",
+      "tunnus": "43",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260819094909561.jpg|koko:2097687": {
+      "kohde": "ky_26_kuva1.jpg",
+      "tunnus": "26",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260819100634637.jpg|2026-08-19T13:04:31": {
+      "kohde": "ky_3_kuva1.jpg",
+      "tunnus": "3",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260819100645138.jpg|2026-08-19T13:03:56": {
+      "kohde": "ky_3_kuva2.jpg",
+      "tunnus": "3",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260819100656758.jpg|2026-08-19T13:04:01": {
+      "kohde": "ky_3_kuva3.jpg",
+      "tunnus": "3",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260819101515039.jpg|2026-08-19T13:14:01": {
+      "kohde": "ky_29_kuva1.jpg",
+      "tunnus": "29",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260820074314257.jpg|2026-08-20T10:40:06": {
+      "kohde": "ky_18_kuva1.jpg",
+      "tunnus": "18",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260820074320368.jpg|2026-08-20T10:40:28": {
+      "kohde": "ky_18_kuva2.jpg",
+      "tunnus": "18",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260820075426907.jpg|koko:2735362": {
+      "kohde": "ky_24_kuva1.jpg",
+      "tunnus": "24",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260820075509478.jpg|koko:2605004": {
+      "kohde": "ky_24_kuva2.jpg",
+      "tunnus": "24",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260820075527326.jpg|koko:2751682": {
+      "kohde": "ky_24_kuva3.jpg",
+      "tunnus": "24",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260820081736184.jpg|2026-08-20T11:15:12": {
+      "kohde": "ky_35_kuva1.jpg",
+      "tunnus": "35",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260820081759030.jpg|2026-08-20T11:15:09": {
+      "kohde": "ky_35_kuva2.jpg",
+      "tunnus": "35",
+      "lisatty": "2026-08-23T18:24:43"
+    },
+    "jpeg_20260820081818872.jpg|2026-08-20T11:15:09": {
+      "kohde": "ky_35_kuva3.jpg",
+      "tunnus": "35",
+      "lisatty": "2026-08-23T18:24:44"
+    },
+    "jpeg_20260820083324162.jpg|2026-08-20T11:32:34": {
+      "kohde": "ky_53_kuva1.jpg",
+      "tunnus": "53",
+      "lisatty": "2026-08-23T18:24:44"
+    },
+    "jpeg_20260820083331201.jpg|2026-08-20T11:32:14": {
+      "kohde": "ky_53_kuva2.jpg",
+      "tunnus": "53",
+      "lisatty": "2026-08-23T18:24:44"
+    },
+    "jpeg_20260820090338365.jpg|2026-08-20T11:27:51": {
+      "kohde": "ky_23_kuva1.jpg",
+      "tunnus": "23",
+      "lisatty": "2026-08-23T18:24:44"
+    },
+    "jpeg_20260820090828452.jpg|2026-08-20T11:28:57": {
+      "kohde": "ky_23_kuva2.jpg",
+      "tunnus": "23",
+      "lisatty": "2026-08-23T18:24:44"
+    },
+    "jpeg_20260820112130796.jpg|2026-08-20T13:35:01": {
+      "kohde": "ky_38_kuva1.jpg",
+      "tunnus": "38",
+      "lisatty": "2026-08-23T18:24:44"
+    },
+    "jpeg_20260820112142804.jpg|2026-08-20T13:59:56": {
+      "kohde": "ky_38_kuva2.jpg",
+      "tunnus": "38",
+      "lisatty": "2026-08-23T18:24:44"
+    },
+    "jpeg_20260820112156025.jpg|2026-08-20T13:42:00": {
+      "kohde": "ky_38_kuva3.jpg",
+      "tunnus": "38",
+      "lisatty": "2026-08-23T18:24:44"
+    },
+    "jpeg_20260820120537479.jpg|2026-08-20T15:04:07": {
+      "kohde": "ky_54_kuva1.jpg",
+      "tunnus": "54",
+      "lisatty": "2026-08-23T18:24:44"
+    },
+    "jpeg_20260820120546278.jpg|2026-08-20T15:03:54": {
+      "kohde": "ky_54_kuva2.jpg",
+      "tunnus": "54",
+      "lisatty": "2026-08-23T18:24:44"
+    },
+    "jpeg_20260820120551397.jpg|2026-08-20T15:04:55": {
+      "kohde": "ky_54_kuva3.jpg",
+      "tunnus": "54",
+      "lisatty": "2026-08-23T18:24:44"
+    }
+  }
+}
