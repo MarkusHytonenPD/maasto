@@ -1,38 +1,20 @@
 // Kopioi tämä tiedosto nimellä config.js ja täytä arvot.
 // HUOM: config.js commitoidaan — GitHub Pages tarjoilee docs/-kansion suoraan
 // repostosta, joten ilman tiedostoa julkaistu sivu ei toimisi.
+//
+// Tässä ovat vain KAIKILLE projekteille yhteiset asetukset. Projektikohtaiset
+// asetukset (WMS-tasot, näytettävät sarakkeet, Sheets-ID ja Apps Script -URL)
+// ovat repossa tiedostossa projektit/[projekti]/config.json, jonka kartta
+// lataa käynnistyksen yhteydessä.
 
 const CONFIG = {
     // MML Avoin data -rajapinnan API-avain.
     // Hankinta: https://www.maanmittauslaitos.fi/rajapinnat/api-avaimen-ohje
     // Avain on selainsovelluksessa väistämättä julkinen eikä sille voi asettaa
-    // verkkotunnusrajausta. Käytä omaa avainta per julkaisu, ja jos avain joutuu
-    // väärinkäyttöön: luo uusi OmaTilissä, päivitä tähän, pushaa, poista vanha.
+    // verkkotunnusrajausta. Jos avain joutuu väärinkäyttöön: luo uusi
+    // OmaTilissä, päivitä tähän, pushaa, poista vanha.
     MML_API_KEY: "KORVAA_TAHAN_MML_API_AVAIN",
 
-    // Google Apps Script -endpoint (saadaan deploymentin jälkeen)
-    SHEETS_URL: "KORVAA_TAHAN_APPS_SCRIPT_URL",
-
-    // Projektin nimi — vastaa projektit/-kansion nimeä repossa
-    PROJEKTI: "heinlansi",
-
-    // GitHub raw -URL repon juureen (GeoJSON-datan haku GitHub Pagesissa)
+    // GitHub raw -URL repon juureen (GeoJSON-datan ja projektin configin haku)
     GITHUB_RAW: "https://raw.githubusercontent.com/MarkusHytonenPD/maasto/main",
-
-    // WMS-tasot layer controliin. nakyva: false → piilotettu oletuksena.
-    TASOT: [
-        {
-            nimi:   "Kaavaluonnos",
-            url:    "https://ubigu.ubihub.io/geoserver/kaavarasterit/ows",
-            layer:  "kaavarasterit:KORVAA_LAYER_NIMI",
-            nakyva: true,
-        },
-        // Lisää tarpeen mukaan:
-        // {
-        //     nimi:   "Toinen taso",
-        //     url:    "https://...",
-        //     layer:  "workspace:layername",
-        //     nakyva: false,
-        // },
-    ],
 };

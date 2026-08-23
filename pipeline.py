@@ -10,6 +10,13 @@ Vaiheet:
   4. GeoJSON-vienti   (kuva1/2/3-sarakkeet täysillä URL:illa) + git push
   5. Yhteenveto
 
+Tilat:
+  1 = Pipeline (automaattinen kuvakansiosta)
+  2 = Sijoita käsin (yksittäiset kuvat)
+  3 = Päivitä luokitukset GeoPackageen — yhdistää karttasovelluksesta ladatun
+      kaavoittajan luokitus-GeoJSONin ja viranomaisen lausunnot (Sheetsistä
+      julkisena CSV:nä) alkuperäiseen GeoPackageen.
+
 Työskentely erissä:
   Kuvia ja GPX-lokeja voi lisätä useassa ajossa. Kuvanumerointi jatkuu siitä
   mihin edellinen ajo jäi, ja GeoJSON rakennetaan aina koko kuvat/-kansiosta.
@@ -19,8 +26,12 @@ Työskentely erissä:
   eikä pitkien aukkojen (loggeri pois päältä) yli interpoloida.
 
 Vaatimukset:
-  pip install geopandas pillow pyproj gpxpy piexif
+  pip install geopandas pillow pyproj gpxpy piexif pandas requests
+  pip install google-api-python-client google-auth google-auth-oauthlib
   pip install tzdata   # vain Windows, zoneinfo-kirjaston aikavyöhyketietokanta
+
+Google-kirjautuminen (kertaluonteinen, tarvitaan Sheetien luontiin):
+  python3 auth_pipeline.py
 
 Konfiguroi PROJEKTI ja REPO_POLKU alla, muut johdetaan automaattisesti.
 """
@@ -38,13 +49,14 @@ _HELSINKI = zoneinfo.ZoneInfo("Europe/Helsinki")
 try:
     import geopandas as gpd
     import gpxpy
+    import pandas as pd
     import piexif
     from PIL import Image
     from PIL.ExifTags import GPSTAGS, TAGS
     from pyproj import Transformer
 except ImportError as e:
     print(f"VIRHE: Kirjasto puuttuu: {e}")
-    print("Asenna: pip install geopandas pillow pyproj gpxpy piexif")
+    print("Asenna: pip install geopandas pillow pyproj gpxpy piexif pandas")
     input("\nPaina Enter sulkeaksesi...")
     raise SystemExit(1)
 
@@ -57,7 +69,63 @@ REPO_POLKU    = Path("/home/markus/omat-apit/rak_kult_kuvakarttajulkaisu")  # Wi
 GITHUB_USER   = "MarkusHytonenPD"
 GITHUB_REPO   = "maasto"
 GITHUB_BRANCH = "main"
-TUNNUS_SARAKE = "tunnus"
+TUNNUS_SARAKE        = "tunnus"
+LUOKITUS_SARAKE      = "potentiaali"    # kenttätiimin luokitus GeoPackagessa
+LUOKITUS_VIR_SARAKE  = "luokitus_vir"   # viranomaisen luokitus
+KOMMENTTI_VIR_SARAKE = "kommentti_vir"  # viranomaisen kommentti
+NIMI_VIR_SARAKE      = "nimi_vir"       # viranomaisen nimi
+VIRASTO_VIR_SARAKE   = "virasto_vir"    # viranomaisen virasto
+
+# Viranomaissarakkeet luodaan tyhjinä GeoJSON-vientiin jos ne puuttuvat.
+# Lähde-GeoPackageen niitä EI kirjoiteta pipeline-ajossa — se tehdään vasta
+# tilassa 3 (Päivitä luokitukset GeoPackageen), jossa käyttäjä valitsee
+# tallennetaanko päälle vai uudella nimellä.
+VIRANOMAIS_SARAKKEET = [
+    LUOKITUS_VIR_SARAKE,
+    KOMMENTTI_VIR_SARAKE,
+    NIMI_VIR_SARAKE,
+    VIRASTO_VIR_SARAKE,
+]
+
+KUVA_SARAKKEET = ["kuva1", "kuva2", "kuva3"]
+
+# Nämä viedään GeoJSONiin aina, riippumatta naytettavat_sarakkeet-valinnasta.
+# Puuttuvat luodaan tyhjänä merkkijonona.
+PAKOLLISET_SARAKKEET = [TUNNUS_SARAKE, LUOKITUS_SARAKE] + VIRANOMAIS_SARAKKEET + KUVA_SARAKKEET
+
+# Google Drive -kansio johon projektikohtaiset Sheetit luodaan
+DRIVE_KANSIO_ID = "1Q03U_D9tsMes94fDYWydJdTV7PD9W8W4"
+
+# Sheetin välilehti nimetään eksplisiittisesti: oletusnimi vaihtelee kielen
+# mukaan (Sheet1 / Taulukko1), ja tilan 3 CSV-haku tarvitsee tarkan nimen.
+SHEET_VALILEHTI = "Lausunnot"
+SHEET_OTSIKOT   = [TUNNUS_SARAKE] + VIRANOMAIS_SARAKKEET
+
+# Service account omistaa luomansa Sheetin. Ilman kirjoitusoikeutta näihin
+# osoitteisiin Sheettiä ei pääse avaamaan Drivessä eikä Apps Scriptiä
+# liittämään. Molemmat mukana, koska Drive-kansion omistaja on työosoite.
+SHEET_JAKO_EMAILIT = [
+    "markushytonen.tyo@gmail.com",
+    "mark.hytonen@gmail.com",
+]
+
+# drive.file riittää kaikkeen: Sheetin luonti kansioon, välilehden ja
+# otsikoiden kirjoitus Sheets APIlla sekä oikeuksien anto omalle tiedostolle.
+GOOGLE_SCOPET = ["https://www.googleapis.com/auth/drive.file"]
+
+APPS_SCRIPT_TIEDOSTO = "viranomainen_apps_script.gs"
+
+# Google-tunnistus: OAuth-käyttäjätunnistus, EI service accountia.
+# Service accountilla ei ole omaa Drive-tallennustilaa, joten se ei voi omistaa
+# tiedostoja — luonti kaatuu virheeseen "The user's Drive storage quota has been
+# exceeded" myös jaetussa kansiossa. Token luodaan kertaluonteisesti ajamalla
+# auth_pipeline.py; kirjautunut tili omistaa luodut Sheetit.
+OAUTH_CLIENT = REPO_POLKU / "credentials" / "oauth_client.json"
+OAUTH_TOKEN  = REPO_POLKU / "credentials" / "drive_token.json"
+
+# Projektikohtaiset arvot sheets_id ja apps_script_url tallennetaan projektin
+# config.json:iin: sheets_id automaattisesti Sheetin luonnin yhteydessä,
+# apps_script_url käsin Apps Script -deployauksen jälkeen.
 
 # Asetetaan main():ssä käyttäjän syötteen perusteella
 PROJEKTI        = ""
@@ -534,15 +602,65 @@ def _skannaa_kuvat() -> dict:
     return kuva_map
 
 
+def _tulosta_luokitusarvot(gdf):
+    """
+    Tulostaa mitkä arvot LUOKITUS_SARAKE-sarakkeessa esiintyy ja montako
+    kohdetta kullakin on. Sarake voi puuttua kokonaan (uusi aineisto) —
+    silloin siitä vain huomautetaan.
+    """
+    if LUOKITUS_SARAKE not in gdf.columns:
+        print(f"  Kenttäluokitusarvot: sarake '{LUOKITUS_SARAKE}' puuttuu GeoPackagesta")
+        return
+
+    sarja = gdf[LUOKITUS_SARAKE]
+    tyhja = sarja.isna() | (sarja.astype(str).str.strip() == "")
+    laskurit = sarja[~tyhja].astype(str).str.strip().value_counts()
+
+    osat = [f"{arvo} ({maara})" for arvo, maara in sorted(laskurit.items())]
+    if tyhja.any():
+        osat.append(f"tyhjä ({int(tyhja.sum())})")
+    print(f"  Kenttäluokitusarvot ('{LUOKITUS_SARAKE}'): " + (", ".join(osat) or "ei yhtään"))
+
+
+def _varmista_sarakkeet(gdf, sarakkeet: list[str]):
+    """Luo puuttuvat sarakkeet tyhjänä merkkijonona (= Ei merkintää)."""
+    puuttuvat = [s for s in sarakkeet if s not in gdf.columns]
+    for sarake in puuttuvat:
+        gdf[sarake] = ""
+    if puuttuvat:
+        print(f"  Luotu tyhjät sarakkeet: {', '.join(puuttuvat)}")
+    return gdf
+
+
+def _rajaa_sarakkeet(gdf, naytettavat: list[str]):
+    """
+    Jättää GeoJSONiin vain valitut ja pakolliset sarakkeet.
+    Järjestys: käyttäjän valinta ensin (= popupin rivijärjestys),
+    sitten loput pakolliset, viimeisenä geometria.
+    """
+    geom = gdf.geometry.name
+    jarjestys: list[str] = []
+    for sarake in list(naytettavat) + PAKOLLISET_SARAKKEET:
+        if sarake != geom and sarake in gdf.columns and sarake not in jarjestys:
+            jarjestys.append(sarake)
+    pudotettu = [c for c in gdf.columns if c not in jarjestys and c != geom]
+    if pudotettu:
+        print(f"  Ei viedä ({len(pudotettu)}): {', '.join(pudotettu)}")
+    return gdf[jarjestys + [geom]]
+
+
 def vie_geojson(gpkg_polku: Path, layer_nimi: str) -> dict:
     """
     Vaihe 4: lukee GeoPackagen, lisää kuva1/2/3-URL:t, vie GeoJSON WGS84:ssä.
+    Vietävät sarakkeet = config.json:in naytettavat_sarakkeet + pakolliset.
     Palauttaa tilastot {rakennuksia, kuvilla}.
     """
     print("\n--- Vaihe 4: GeoJSON-vienti ---")
     DATA_POLKU.mkdir(parents=True, exist_ok=True)
 
     gdf = _lue_ja_normalisoi_crs(gpkg_polku, layer_nimi, "EPSG:4326")
+    _tulosta_luokitusarvot(gdf)
+    gdf = _varmista_sarakkeet(gdf, PAKOLLISET_SARAKKEET)
 
     # Nollataan sarakkeet (ylikirjoitetaan aiempi ajo)
     gdf["kuva1"] = ""
@@ -561,6 +679,8 @@ def vie_geojson(gpkg_polku: Path, layer_nimi: str) -> dict:
         for i, nimi in enumerate(tiedostot[:3], start=1):
             gdf.loc[maski, f"kuva{i}"] = GITHUB_BASE_URL + nimi
 
+    gdf = _rajaa_sarakkeet(gdf, _lue_projekticonfig().get("naytettavat_sarakkeet") or [])
+
     kohde = DATA_POLKU / "kohteet.geojson"
     gdf.to_file(kohde, driver="GeoJSON")
     print(f"  Viety: {kohde}")
@@ -574,15 +694,41 @@ def vie_geojson(gpkg_polku: Path, layer_nimi: str) -> dict:
 #  PROJEKTICONFIG
 # ══════════════════════════════════════════════════════════════════
 
+def _config_polku() -> Path:
+    return PROJEKTI_POLKU / "config.json"
+
+
+def _lue_projekticonfig() -> dict:
+    """Lukee projektin config.json:in. Palauttaa {} jos tiedostoa ei ole."""
+    polku = _config_polku()
+    if not polku.exists():
+        return {}
+    try:
+        return json.loads(polku.read_text(encoding="utf-8"))
+    except Exception as e:
+        print(f"  ⚠ config.json ei aukea ({e}) — käsitellään tyhjänä")
+        return {}
+
+
+def _kirjoita_projekticonfig(cfg: dict):
+    """
+    Kirjoittaa koko configin. Kutsujan on luettava config ensin
+    _lue_projekticonfig():lla, jotta muut avaimet (nimi, tasot,
+    sheets_id, apps_script_url) säilyvät.
+    """
+    PROJEKTI_POLKU.mkdir(parents=True, exist_ok=True)
+    _config_polku().write_text(
+        json.dumps(cfg, ensure_ascii=False, indent=4), encoding="utf-8"
+    )
+
+
 def alusta_projekticonfig():
     """Luo config.json-pohjan ja docs/[projekti]/index.html jos niitä ei vielä ole."""
     PROJEKTI_POLKU.mkdir(parents=True, exist_ok=True)
 
-    kohde_cfg = PROJEKTI_POLKU / "config.json"
-    if not kohde_cfg.exists():
-        pohja = {"nimi": PROJEKTI, "tasot": []}
-        kohde_cfg.write_text(json.dumps(pohja, ensure_ascii=False, indent=4), encoding="utf-8")
-        print(f"  Luotu: {kohde_cfg}  (lisää WMS-tasot tähän tarvittaessa)")
+    if not _config_polku().exists():
+        _kirjoita_projekticonfig({"nimi": PROJEKTI, "tasot": []})
+        print(f"  Luotu: {_config_polku()}  (lisää WMS-tasot tähän tarvittaessa)")
 
     docs_projekti = REPO_POLKU / "docs" / PROJEKTI
     docs_projekti.mkdir(parents=True, exist_ok=True)
@@ -619,6 +765,642 @@ def alusta_projekticonfig():
 """
         kohde_html.write_text(html, encoding="utf-8")
         print(f"  Luotu: {kohde_html}")
+
+
+# ══════════════════════════════════════════════════════════════════
+#  VIRANOMAISLAUSUNTOJEN GOOGLE SHEET
+# ══════════════════════════════════════════════════════════════════
+
+def _google_creds():
+    """
+    Palauttaa OAuth-tunnisteet credentials/drive_token.json:ista, tai None
+    jos kirjautumista ei ole tehty. Vanhentunut access token uusitaan
+    refresh tokenilla ja tallennetaan takaisin tiedostoon.
+    """
+    from google.auth.transport.requests import Request
+    from google.oauth2.credentials import Credentials
+
+    if not OAUTH_TOKEN.is_file():
+        print(f"  ⚠ Google-kirjautumista ei ole tehty ({OAUTH_TOKEN} puuttuu)")
+        print("    Aja kertaluonteisesti: python3 auth_pipeline.py")
+        return None
+
+    try:
+        creds = Credentials.from_authorized_user_file(str(OAUTH_TOKEN), GOOGLE_SCOPET)
+    except Exception as e:
+        print(f"  ⚠ Tokenia ei voitu lukea ({e})")
+        print("    Aja uudelleen: python3 auth_pipeline.py")
+        return None
+
+    if creds.valid:
+        return creds
+
+    if not creds.refresh_token:
+        print("  ⚠ Token on vanhentunut eikä sisällä refresh tokenia")
+        print("    Aja uudelleen: python3 auth_pipeline.py")
+        return None
+
+    try:
+        creds.refresh(Request())
+        OAUTH_TOKEN.write_text(creds.to_json(), encoding="utf-8")
+        return creds
+    except Exception as e:
+        print(f"  ⚠ Tokenin uusinta epäonnistui ({e})")
+        print("    Aja uudelleen: python3 auth_pipeline.py")
+        return None
+
+
+def _aseta_julkinen_lukuoikeus(drive, tiedosto_id: str):
+    """
+    Varmistaa että linkin tietävät saavat VAIN lukuoikeuden.
+
+    Drive-kansiosta periytyy uusiin tiedostoihin sen oma jakoasetus. Jos
+    kohdekansio on jaettu linkillä muokkausoikeudella, Google EI salli
+    perityn oikeuden laskemista tiedostotasolla — silloin kuka tahansa linkin
+    tietävä voisi kirjoittaa lausuntoja suoraan Sheetiin ohi Apps Script
+    -endpointin. Sitä ei voi korjata koodista, joten siitä varoitetaan.
+    """
+    for perm in drive.permissions().list(
+        fileId=tiedosto_id, fields="permissions(id,type,role)"
+    ).execute().get("permissions", []):
+        if perm["type"] == "anyone":
+            if perm["role"] == "reader":
+                return
+            try:
+                drive.permissions().update(
+                    fileId=tiedosto_id, permissionId=perm["id"], body={"role": "reader"}
+                ).execute()
+                print(f"  Peritty julkinen oikeus laskettu: {perm['role']} → reader")
+            except Exception:
+                print(f"  ⚠ HUOM: linkin tietävillä on '{perm['role']}'-oikeus, ei lukuoikeutta.")
+                print(f"    Oikeus periytyy Drive-kansiosta {DRIVE_KANSIO_ID}, eikä sitä voi")
+                print("    laskea tiedostotasolla. Kuka tahansa linkin tietävä voi siis")
+                print("    muokata lausuntoja suoraan Sheetissä.")
+                print("    Korjaus: avaa kansio Drivessä → Jaa → vaihda linkkijako")
+                print("    'Rajoitettu'-tilaan. Pipeline antaa lukuoikeuden per Sheet.")
+            return
+    drive.permissions().create(
+        fileId=tiedosto_id, body={"type": "anyone", "role": "reader"}
+    ).execute()
+
+
+def _julkinen_rooli(drive, tiedosto_id: str) -> str:
+    """Tarkistuslukema: mikä oikeus linkin tietävillä lopulta on."""
+    for perm in drive.permissions().list(
+        fileId=tiedosto_id, fields="permissions(type,role)"
+    ).execute().get("permissions", []):
+        if perm["type"] == "anyone":
+            return perm["role"]
+    return "ei julkista oikeutta"
+
+
+def _tulosta_deployausohje(sheets_url: str):
+    print("\n  SEURAAVA VAIHE — Apps Script -endpoint (tehdään kerran per projekti):")
+    print(f"    1. Avaa Sheet: {sheets_url}")
+    print("    2. Laajennukset → Apps Script")
+    print(f"    3. Kopioi {APPS_SCRIPT_TIEDOSTO} editoriin ja tallenna")
+    print("    4. Ota käyttöön → Uusi deployment → Tyyppi: Web-sovellus")
+    print("       Suorittaja: Minä  |  Käyttäjät: Kaikki")
+    print("    5. Kopioi Web app URL ja lisää se projektin config.json:iin")
+    print('       avaimeen "apps_script_url"')
+
+
+def luo_projekti_sheet(projekti: str) -> str | None:
+    """
+    Luo projektikohtaisen Google Sheetin viranomaislausunnoille:
+    otsikkorivi, julkinen lukuoikeus (CSV-haku ilman autentikointia) ja
+    kirjoitusoikeus SHEET_JAKO_EMAIL:lle. Tallentaa sheets_id:n config.json:iin.
+
+    Palauttaa Sheetin ID:n, tai None jos luonti ei onnistunut — pipeline
+    jatkaa silloin normaalisti, Sheet voidaan luoda seuraavalla ajolla.
+    """
+    print("\n--- Viranomaislausuntojen Google Sheet ---")
+
+    try:
+        from googleapiclient.discovery import build
+    except ImportError as e:
+        print(f"  ⚠ Kirjasto puuttuu ({e}) — Sheetiä ei luotu")
+        print("    Asenna: pip install --user google-api-python-client google-auth")
+        return None
+
+    creds = _google_creds()
+    if creds is None:
+        print("    Pipeline jatkaa — Sheet voidaan luoda seuraavalla ajolla.")
+        return None
+
+    nimi = f"Viranomaislausunnot_{projekti}"
+    try:
+        drive  = build("drive",  "v3", credentials=creds, cache_discovery=False)
+        sheets = build("sheets", "v4", credentials=creds, cache_discovery=False)
+
+        # 1) Sheet luodaan Drive APIlla suoraan oikeaan kansioon
+        sheets_id = drive.files().create(
+            body={
+                "name":     nimi,
+                "mimeType": "application/vnd.google-apps.spreadsheet",
+                "parents":  [DRIVE_KANSIO_ID],
+            },
+            fields="id",
+            supportsAllDrives=True,
+        ).execute()["id"]
+
+        # 2) Välilehden nimi, kiinteä otsikkorivi ja otsikot
+        meta   = sheets.spreadsheets().get(spreadsheetId=sheets_id).execute()
+        vali_id = meta["sheets"][0]["properties"]["sheetId"]
+        sheets.spreadsheets().batchUpdate(
+            spreadsheetId=sheets_id,
+            body={"requests": [
+                {"updateSheetProperties": {
+                    "properties": {
+                        "sheetId":        vali_id,
+                        "title":          SHEET_VALILEHTI,
+                        "gridProperties": {"frozenRowCount": 1},
+                    },
+                    "fields": "title,gridProperties.frozenRowCount",
+                }},
+                {"repeatCell": {
+                    "range": {"sheetId": vali_id, "startRowIndex": 0, "endRowIndex": 1},
+                    "cell":  {"userEnteredFormat": {"textFormat": {"bold": True}}},
+                    "fields": "userEnteredFormat.textFormat.bold",
+                }},
+            ]},
+        ).execute()
+        sheets.spreadsheets().values().update(
+            spreadsheetId=sheets_id,
+            range=f"{SHEET_VALILEHTI}!A1",
+            valueInputOption="RAW",
+            body={"values": [SHEET_OTSIKOT]},
+        ).execute()
+
+        # 3) Oikeudet: julkinen luku (CSV-haku) + oma kirjoitusoikeus
+        _aseta_julkinen_lukuoikeus(drive, sheets_id)
+        for email in SHEET_JAKO_EMAILIT:
+            try:
+                drive.permissions().create(
+                    fileId=sheets_id,
+                    body={"type": "user", "role": "writer", "emailAddress": email},
+                    sendNotificationEmail=False,
+                ).execute()
+            except Exception as e:
+                # Yhden osoitteen epäonnistuminen ei kaada luontia
+                print(f"  ⚠ Kirjoitusoikeutta ei voitu antaa osoitteelle {email}: {e}")
+
+    except Exception as e:
+        print(f"  ⚠ Sheetin luonti epäonnistui: {e}")
+        print("    Tarkista että:")
+        print(f"      • kirjautuneella tilillä on kirjoitusoikeus Drive-kansioon {DRIVE_KANSIO_ID}")
+        print("      • Drive API ja Sheets API ovat päällä projektissa gws-sheets-494810")
+        print("    Kirjautumisen voi uusia: python3 auth_pipeline.py")
+        print("    Pipeline jatkaa — Sheet voidaan luoda seuraavalla ajolla.")
+        return None
+
+    cfg = _lue_projekticonfig()
+    cfg["sheets_id"]        = sheets_id
+    cfg["sheets_valilehti"] = SHEET_VALILEHTI
+    cfg.setdefault("apps_script_url", "")
+    _kirjoita_projekticonfig(cfg)
+
+    sheets_url = f"https://docs.google.com/spreadsheets/d/{sheets_id}/edit"
+    print(f"  ✓ Luotu: {nimi}")
+    print(f"    {sheets_url}")
+    print(f"    Välilehti: {SHEET_VALILEHTI}  |  Otsikot: {', '.join(SHEET_OTSIKOT)}")
+    print(f"    Linkin tietävät: {_julkinen_rooli(drive, sheets_id)}"
+          f"  |  Kirjoitusoikeus: {', '.join(SHEET_JAKO_EMAILIT)}")
+    print("    sheets_id tallennettu config.json:iin")
+    _tulosta_deployausohje(sheets_url)
+    return sheets_id
+
+
+# ══════════════════════════════════════════════════════════════════
+#  NÄYTETTÄVIEN SARAKKEIDEN VALINTA
+# ══════════════════════════════════════════════════════════════════
+
+def _esimerkkiarvo(sarja) -> str:
+    """Ensimmäinen ei-tyhjä arvo esimerkkinä. Tyhjästä sarakkeesta '—'."""
+    for arvo in sarja:
+        if arvo is None:
+            continue
+        try:
+            if pd.isna(arvo):      # NaN, NaT, pd.NA
+                continue
+        except (TypeError, ValueError):
+            pass
+        teksti = str(arvo).strip()
+        if not teksti or teksti.lower() in ("nan", "nat", "none"):
+            continue
+        if len(teksti) > 40:
+            teksti = teksti[:37] + "..."
+        return f'esim. "{teksti}"'
+    return "—"
+
+
+def kysy_naytettavat_sarakkeet(gdf) -> list[str]:
+    """
+    Kysyy mitkä GeoPackagen sarakkeet näytetään selaimessa kohteen popupissa.
+    Palauttaa sarakenimet käyttäjän antamassa järjestyksessä (= popupin
+    rivijärjestys) ja tallentaa valinnan config.json:iin.
+
+    Kuva- ja viranomaissarakkeet jätetään listasta pois — ne ovat pakollisia
+    ja karttasovellus esittää ne omissa osioissaan.
+    """
+    ohita     = set(VIRANOMAIS_SARAKKEET) | set(KUVA_SARAKKEET) | {gdf.geometry.name}
+    valittavat = [c for c in gdf.columns if c not in ohita]
+    if not valittavat:
+        return []
+
+    print("\nSaatavilla olevat sarakkeet:")
+    leveys = max(len(c) for c in valittavat)
+    numero_leveys = len(str(len(valittavat) - 1))
+    for i, sarake in enumerate(valittavat):
+        numero = f"[{i}]".rjust(numero_leveys + 2)
+        print(f"  {numero} {sarake.ljust(leveys)}  ({_esimerkkiarvo(gdf[sarake])})")
+
+    cfg      = _lue_projekticonfig()
+    tallessa = cfg.get("naytettavat_sarakkeet") or []
+    aiempi   = [c for c in tallessa if c in valittavat]
+    kadonneet = [c for c in tallessa if c not in valittavat]
+    if kadonneet:
+        print(f"\n  ⚠ Aiemmin valittu, ei löydy tästä aineistosta: {', '.join(kadonneet)}")
+    if aiempi:
+        print(f"\nNykyinen valinta: {', '.join(aiempi)}")
+
+    oletus_teksti = "nykyinen valinta" if aiempi else "kaikki"
+    nimi_avain    = {c.lower(): c for c in valittavat}
+
+    while True:
+        syote = input(
+            f"\nValitse näytettävät sarakkeet (pilkulla erotetut numerot tai nimet, "
+            f"Enter = {oletus_teksti}):\n> "
+        ).strip()
+
+        if not syote:
+            valinta = aiempi or list(valittavat)
+            break
+
+        valinta, tuntemattomat = [], []
+        for osa in (o.strip() for o in syote.split(",")):
+            if not osa:
+                continue
+            if osa.isdigit() and int(osa) < len(valittavat):
+                sarake = valittavat[int(osa)]
+            else:
+                sarake = nimi_avain.get(osa.lower())
+            if sarake is None:
+                tuntemattomat.append(osa)
+            elif sarake not in valinta:
+                valinta.append(sarake)
+
+        if tuntemattomat:
+            print(f"  ⚠ Ei tunnistettu: {', '.join(tuntemattomat)} — yritä uudelleen")
+            continue
+        if not valinta:
+            print("  ⚠ Valitse vähintään yksi sarake")
+            continue
+        break
+
+    cfg["naytettavat_sarakkeet"] = valinta
+    _kirjoita_projekticonfig(cfg)
+    print(f"  Näytettävät sarakkeet: {', '.join(valinta)}")
+    return valinta
+
+
+# ══════════════════════════════════════════════════════════════════
+#  TILA 3 — LUOKITUSTEN PÄIVITYS GEOPACKAGEEN
+# ══════════════════════════════════════════════════════════════════
+
+def _normalisoi_tunnus(arvo) -> str:
+    """
+    Tunnus vertailukelpoiseen muotoon. GeoPackagessa se voi olla teksti,
+    kokonaisluku tai liukuluku (63 / '63' / 63.0) — kaikki tarkoittavat samaa.
+    """
+    if arvo is None:
+        return ""
+    if isinstance(arvo, float):
+        if pd.isna(arvo):
+            return ""
+        if arvo.is_integer():
+            return str(int(arvo))
+    teksti = str(arvo).strip()
+    if teksti.endswith(".0") and teksti[:-2].lstrip("-").isdigit():
+        return teksti[:-2]
+    return teksti
+
+
+def _pura_gpkg_geometria(blob):
+    """
+    Purkaa GeoPackagen geometriablobin otsikon (GPKG-spec 2.1.3).
+    Palauttaa (tyhja, envelope, wkb), jossa envelope = (minx, maxx, miny, maxy).
+    """
+    import struct
+
+    if blob is None:
+        return True, None, None
+    if isinstance(blob, str):
+        blob = blob.encode("latin-1", "ignore")
+    blob = bytes(blob)
+    if len(blob) < 8 or blob[0:2] != b"GP":
+        return False, None, blob            # ei GPKG-otsikkoa — oletetaan paljas WKB
+
+    liput  = blob[3]
+    pikku  = bool(liput & 0x01)             # tavujärjestys
+    tyhja  = bool(liput & 0x10)             # empty geometry flag
+    koot   = {0: 0, 1: 32, 2: 48, 3: 48, 4: 64}
+    pituus = koot.get((liput >> 1) & 0x07)
+    if pituus is None:
+        return tyhja, None, None
+
+    loppu = 8 + pituus
+    env   = None
+    if pituus:
+        arvot = struct.unpack(("<" if pikku else ">") + "d" * (pituus // 8),
+                              blob[8:loppu])
+        env = (arvot[0], arvot[1], arvot[2], arvot[3])
+    return tyhja, env, blob[loppu:]
+
+
+def _gpkg_rajat(blob):
+    """(minx, maxx, miny, maxy) tai None. Käyttää otsikon envelopea jos on."""
+    tyhja, env, wkb = _pura_gpkg_geometria(blob)
+    if tyhja:
+        return None
+    if env:
+        return env
+    if not wkb:
+        return None
+    try:
+        from shapely import wkb as shapely_wkb
+        minx, miny, maxx, maxy = shapely_wkb.loads(wkb).bounds
+        return (minx, maxx, miny, maxy)
+    except Exception:
+        return None
+
+
+def _rekisteroi_gpkg_funktiot(yhteys):
+    """
+    GeoPackagen RTree-triggerit kutsuvat ST_*-funktioita, jotka tulevat
+    normaalisti GDAL:sta — paljas sqlite3 ei tunne niitä. Triggerit
+    rtree_*_update4 ja _update5 laukeavat MINKÄ TAHANSA sarakkeen
+    päivityksestä ja kutsuvat ST_IsEmpty:ä jo WHEN-ehdossaan, joten ilman
+    näitä pelkkä attribuuttipäivitys kaatuu virheeseen
+    "no such function: ST_IsEmpty".
+    """
+    yhteys.create_function(
+        "ST_IsEmpty", 1, lambda b: 1 if _pura_gpkg_geometria(b)[0] else 0)
+    for nimi, indeksi in (("ST_MinX", 0), ("ST_MaxX", 1), ("ST_MinY", 2), ("ST_MaxY", 3)):
+        yhteys.create_function(
+            nimi, 1,
+            lambda b, i=indeksi: (_gpkg_rajat(b) or (None, None, None, None))[i])
+
+
+def lue_kaavoittajan_geojson(polku: Path) -> dict:
+    """
+    Lukee karttasovelluksen "Lataa kaavoittajan suositukset" -tiedoston.
+    Palauttaa {tunnus: luokitusarvo}.
+    """
+    try:
+        data = json.loads(polku.read_text(encoding="utf-8"))
+    except Exception as e:
+        print(f"  ⚠ GeoJSONia ei voitu lukea: {e}")
+        return {}
+
+    tulos = {}
+    for piirre in data.get("features", []):
+        ominaisuudet = piirre.get("properties") or {}
+        tunnus = _normalisoi_tunnus(ominaisuudet.get(TUNNUS_SARAKE))
+        if not tunnus or LUOKITUS_SARAKE not in ominaisuudet:
+            continue
+        arvo = ominaisuudet[LUOKITUS_SARAKE]
+        tulos[tunnus] = "" if arvo is None else str(arvo)
+
+    print(f"  Kaavoittajan GeoJSON: {len(tulos)} kohdetta")
+    return tulos
+
+
+def hae_viranomaisdata() -> dict:
+    """
+    Hakee viranomaislausunnot Sheetsistä julkisena CSV:nä — ei autentikointia,
+    koska Sheet on jaettu lukuoikeudella. Palauttaa {tunnus: {sarake: arvo}}.
+    """
+    cfg       = _lue_projekticonfig()
+    sheets_id = cfg.get("sheets_id")
+    if not sheets_id:
+        print("  Sheets-ID:tä ei ole config.json:issa — viranomaisdataa ei haettu")
+        return {}
+
+    try:
+        import io
+        from urllib.parse import quote
+
+        import requests
+    except ImportError as e:
+        print(f"  ⚠ Kirjasto puuttuu ({e}) — viranomaisdataa ei haettu")
+        return {}
+
+    valilehti = cfg.get("sheets_valilehti") or SHEET_VALILEHTI
+    url = (f"https://docs.google.com/spreadsheets/d/{sheets_id}"
+           f"/gviz/tq?tqx=out:csv&sheet={quote(valilehti)}")
+
+    try:
+        vastaus = requests.get(url, timeout=30)
+        vastaus.raise_for_status()
+        vastaus.encoding = "utf-8"
+        df = pd.read_csv(io.StringIO(vastaus.text), dtype=str)
+    except Exception as e:
+        print(f"  ⚠ Sheets-haku epäonnistui: {e}")
+        print(f"    Tarkista että Sheet on jaettu lukuoikeudella ja välilehti on '{valilehti}'")
+        return {}
+
+    # gviz ei virheile tuntemattomasta sheet-nimestä vaan palauttaa
+    # ensimmäisen välilehden. Otsikkotarkistus on siis ainoa suoja väärän
+    # välilehden lukemiselta — älä poista sitä.
+    puuttuvat = [s for s in SHEET_OTSIKOT if s not in df.columns]
+    if puuttuvat:
+        print(f"  ⚠ Sheetistä puuttuu sarakkeita: {', '.join(puuttuvat)}")
+        print(f"    Löytyi: {', '.join(str(c) for c in df.columns[:6])}")
+        return {}
+
+    # gviz palauttaa otsikoiden jälkeen tyhjiä sarakkeita — poimitaan nimellä
+    df = df[SHEET_OTSIKOT].fillna("")
+
+    tulos = {}
+    for _, rivi in df.iterrows():
+        tunnus = _normalisoi_tunnus(rivi[TUNNUS_SARAKE])
+        if not tunnus:
+            continue
+        tulos[tunnus] = {s: str(rivi[s]).strip() for s in VIRANOMAIS_SARAKKEET}
+
+    print(f"  Sheetsistä: {len(tulos)} viranomaislausuntoa")
+    return tulos
+
+
+def paivita_geopackage(gpkg_polku: Path, layer_nimi: str,
+                       kaava: dict, viranomais: dict) -> dict:
+    """
+    Päivittää luokitukset GeoPackageen SQLitellä paikan päällä.
+
+    EI käytä gdf.to_file():ta, koska se kirjoittaisi tiedoston uudelleen ja
+    pudottaisi samaan GeoPackageen tallennetut QGIS-tyylit (layer_styles) ja
+    muut tasot. ALTER TABLE + UPDATE koskee vain haluttuja sarakkeita.
+
+    Palauttaa tilastot {kaava_ok, vir_ok, puuttuvat, lisatyt_sarakkeet}.
+    """
+    import sqlite3
+
+    yhteys = sqlite3.connect(str(gpkg_polku))
+    try:
+        _rekisteroi_gpkg_funktiot(yhteys)
+        kursori = yhteys.cursor()
+
+        taulut = [r[0] for r in kursori.execute(
+            "SELECT table_name FROM gpkg_contents").fetchall()]
+        if layer_nimi not in taulut:
+            raise ValueError(
+                f"Layeria '{layer_nimi}' ei ole GeoPackagessa. Löytyi: {', '.join(taulut)}")
+
+        sarakkeet = [r[1] for r in kursori.execute(
+            f'PRAGMA table_info("{layer_nimi}")').fetchall()]
+        if TUNNUS_SARAKE not in sarakkeet:
+            raise ValueError(f"Saraketta '{TUNNUS_SARAKE}' ei ole layerissa '{layer_nimi}'")
+
+        # Puuttuvat sarakkeet lisätään tyhjinä
+        lisatyt = []
+        for sarake in [LUOKITUS_SARAKE] + VIRANOMAIS_SARAKKEET:
+            if sarake not in sarakkeet:
+                kursori.execute(f'ALTER TABLE "{layer_nimi}" ADD COLUMN "{sarake}" TEXT')
+                lisatyt.append(sarake)
+        if lisatyt:
+            print(f"  Lisätty sarakkeet: {', '.join(lisatyt)}")
+
+        # rowid → tunnus, jotta päivitys ei riipu tunnuksen SQL-tyypistä
+        rivit = kursori.execute(
+            f'SELECT rowid, "{TUNNUS_SARAKE}" FROM "{layer_nimi}"').fetchall()
+        rowid_per_tunnus = {}
+        for rowid, tunnus in rivit:
+            normi = _normalisoi_tunnus(tunnus)
+            if normi:
+                rowid_per_tunnus.setdefault(normi, []).append(rowid)
+
+        kaava_ok = vir_ok = 0
+        puuttuvat = []
+
+        for tunnus, arvo in kaava.items():
+            rowidit = rowid_per_tunnus.get(tunnus)
+            if not rowidit:
+                puuttuvat.append(tunnus)
+                continue
+            for rowid in rowidit:
+                kursori.execute(
+                    f'UPDATE "{layer_nimi}" SET "{LUOKITUS_SARAKE}" = ? WHERE rowid = ?',
+                    (arvo, rowid))
+            kaava_ok += 1
+
+        for tunnus, arvot in viranomais.items():
+            rowidit = rowid_per_tunnus.get(tunnus)
+            if not rowidit:
+                puuttuvat.append(tunnus)
+                continue
+            asetukset = ", ".join(f'"{s}" = ?' for s in VIRANOMAIS_SARAKKEET)
+            for rowid in rowidit:
+                kursori.execute(
+                    f'UPDATE "{layer_nimi}" SET {asetukset} WHERE rowid = ?',
+                    [arvot.get(s, "") for s in VIRANOMAIS_SARAKKEET] + [rowid])
+            vir_ok += 1
+
+        yhteys.commit()
+    finally:
+        yhteys.close()
+
+    return {
+        "kaava_ok": kaava_ok,
+        "vir_ok": vir_ok,
+        "puuttuvat": sorted(set(puuttuvat)),
+        "lisatyt_sarakkeet": lisatyt,
+    }
+
+
+def tila3_paivita_luokitukset(gpkg_polku: Path, layer_nimi: str) -> Path | None:
+    """
+    Tila 3: yhdistää kaavoittajan selainluokitukset ja viranomaisen lausunnot
+    GeoPackageen. Palauttaa päivitetyn GeoPackagen polun, tai None.
+    """
+    print("\n--- Tila 3: Päivitä luokitukset GeoPackageen ---")
+
+    # 1) Kaavoittajan GeoJSON (valinnainen)
+    kaava = {}
+    syote = input(
+        "\nKaavoittajan luokitus-GeoJSON (karttasovelluksen lataama tiedosto,\n"
+        "Enter = ohita ja päivitä vain viranomaisdata):\n> "
+    ).strip().strip('"')
+    if syote:
+        polku = Path(syote)
+        if not polku.is_file():
+            print(f"  ⚠ Tiedostoa ei löydy: {polku}")
+            if input("  Jatketaanko ilman sitä? (k/e): ").strip().lower() != "k":
+                return None
+        else:
+            kaava = lue_kaavoittajan_geojson(polku)
+
+    # 2) Viranomaisdata Sheetsistä
+    print()
+    viranomais = hae_viranomaisdata()
+
+    if not kaava and not viranomais:
+        print("\n  Ei päivitettävää dataa kummastakaan lähteestä.")
+        return None
+
+    # 3) Kohdetiedosto
+    print("\nTallennus:")
+    print("  1 = Päälle (alkuperäinen GeoPackage)")
+    print("  2 = Uudella nimellä (kopio)")
+    valinta = input("Valinta (1/2): ").strip()
+
+    kohde = gpkg_polku
+    if valinta == "2":
+        nimi = input(
+            f"\nUusi tiedostonimi [{gpkg_polku.stem}_paivitetty.gpkg]:\n> "
+        ).strip().strip('"')
+        kohde = (gpkg_polku.parent / (nimi or f"{gpkg_polku.stem}_paivitetty.gpkg"))
+        if kohde.suffix.lower() != ".gpkg":
+            kohde = kohde.with_suffix(".gpkg")
+        if kohde.exists() and input(f"  {kohde.name} on jo olemassa. Korvataanko? (k/e): "
+                                   ).strip().lower() != "k":
+            return None
+        # Kopioidaan koko tiedosto, jotta tyylit ja muut tasot säilyvät
+        shutil.copy2(gpkg_polku, kohde)
+        print(f"  Kopioitu: {kohde}")
+    elif valinta != "1":
+        print("  Virheellinen valinta — ei tallennettu.")
+        return None
+
+    # 4) Päivitys
+    print()
+    try:
+        tilastot = paivita_geopackage(kohde, layer_nimi, kaava, viranomais)
+    except Exception as e:
+        print(f"  VIRHE: päivitys epäonnistui: {e}")
+        return None
+
+    print(f"\n  Päivitetty: {kohde}")
+    print(f"    Kaavoittajan luokituksia:   {tilastot['kaava_ok']}")
+    print(f"    Viranomaislausuntoja:       {tilastot['vir_ok']}")
+    if tilastot["puuttuvat"]:
+        naytettavat = ", ".join(tilastot["puuttuvat"][:10])
+        loput = len(tilastot["puuttuvat"]) - 10
+        print(f"    ⚠ Tunnuksia ei löytynyt GeoPackagesta: {len(tilastot['puuttuvat'])}"
+              f"  ({naytettavat}{f' ... +{loput}' if loput > 0 else ''})")
+        print("      Yleisin syy: väärä projekti tai vanhentunut GeoPackage.")
+
+    # 5) kohteet.gpkg projektikansioon
+    if input("\nViedäänkö myös kohteet.gpkg projektikansioon? (k/e): ").strip().lower() == "k":
+        try:
+            DATA_POLKU.mkdir(parents=True, exist_ok=True)
+            gdf = _lue_ja_normalisoi_crs(kohde, layer_nimi, "EPSG:3067")
+            gdf.to_file(DATA_POLKU / "kohteet.gpkg", driver="GPKG")
+            print(f"  Viety: {DATA_POLKU / 'kohteet.gpkg'}")
+        except Exception as e:
+            print(f"  ⚠ Vienti epäonnistui: {e}")
+
+    return kohde
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -736,6 +1518,13 @@ def main():
     )
 
     alusta_projekticonfig()
+
+    # Sheet luodaan vain kerran per projekti
+    if _lue_projekticonfig().get("sheets_id"):
+        print("  Viranomaislausuntojen Sheet on jo luotu (sheets_id config.json:issa)")
+    else:
+        luo_projekti_sheet(PROJEKTI)
+
     git_push(f"Alusta projekti: {PROJEKTI}", f"docs/{PROJEKTI}/")
 
     print()
@@ -761,8 +1550,9 @@ def main():
     print("\nTila?")
     print("  1 = Pipeline  (automaattinen, kuvakansio → GPS → nimeäminen)")
     print("  2 = Sijoita käsin  (lisää tai korjaa yksittäisiä kuvia)")
-    tila = input("Valinta (1/2): ").strip()
-    if tila not in ("1", "2"):
+    print("  3 = Päivitä luokitukset GeoPackageen  (kaavoittaja + viranomainen)")
+    tila = input("Valinta (1/2/3): ").strip()
+    if tila not in ("1", "2", "3"):
         print("Virheellinen valinta.")
         input("Paina Enter sulkeaksesi...")
         return
@@ -777,6 +1567,45 @@ def main():
     except Exception as e:
         print(f"VIRHE: GeoPackagea ei voitu lukea:\n{e}")
         input("Paina Enter sulkeaksesi...")
+        return
+
+    # --- Selaimessa näytettävät sarakkeet ---
+
+    kysy_naytettavat_sarakkeet(gdf_3067)
+
+    # ── TILA 3: LUOKITUSTEN PÄIVITYS ──────────────────────────────
+    # Palaa tästä — kuvien käsittelyllä ei ole osaa tässä tilassa.
+
+    if tila == "3":
+        paivitetty = tila3_paivita_luokitukset(gpkg_polku, layer_nimi)
+        if paivitetty is None:
+            print("\nEi muutoksia.")
+            input("Paina Enter sulkeaksesi...")
+            return
+
+        if input("\nViedäänkö kohteet.geojson ja pushataanko? (k/e): ").strip().lower() == "k":
+            geojson_tilastot = vie_geojson(paivitetty, layer_nimi)
+            print("\n--- Git push (data + config) ---")
+            git_push(
+                f"Päivitä luokitukset: {PROJEKTI}",
+                f"projektit/{PROJEKTI}/",
+            )
+            print()
+            print("=" * 60)
+            print("  Valmis!")
+            print(f"  GeoPackage:          {paivitetty}")
+            print(f"  Rakennuksia kuvilla: "
+                  f"{geojson_tilastot['kuvilla']} / {geojson_tilastot['rakennuksia']}")
+            print("=" * 60)
+        else:
+            print()
+            print("=" * 60)
+            print("  Valmis!")
+            print(f"  GeoPackage:          {paivitetty}")
+            print("  GeoJSONia ei viety — kartta näyttää edellisen ajon datan.")
+            print("=" * 60)
+
+        input("\nPaina Enter sulkeaksesi...")
         return
 
     # ── TILA 1: PIPELINE ──────────────────────────────────────────
@@ -854,6 +1683,7 @@ def main():
             print("\nVaihe 3 ohitettu — ei nimetty yhtään kuvaa.")
 
     # ── TILA 2: KÄSIN SIJOITTELU ──────────────────────────────────
+    # Tila 3 on käsitelty jo yllä, joten tähän päätyy vain tila 2.
 
     else:
         kuvia_lisatty = sijoita_käsin(gdf_3067)
@@ -871,10 +1701,13 @@ def main():
 
     geojson_tilastot = vie_geojson(gpkg_polku, layer_nimi)
 
-    print("\n--- Git push (data) ---")
+    # Polku on projektikansio, ei pelkkä data/ — myös config.json pitää päätyä
+    # GitHubiin, koska kartta lukee sieltä tasot, naytettavat_sarakkeet ja
+    # apps_script_url.
+    print("\n--- Git push (data + config) ---")
     git_push(
-        f"Päivitä kohteet.geojson: {PROJEKTI}",
-        f"projektit/{PROJEKTI}/data/",
+        f"Päivitä kohteet.geojson ja config: {PROJEKTI}",
+        f"projektit/{PROJEKTI}/",
     )
 
     print()

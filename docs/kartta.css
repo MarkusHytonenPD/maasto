@@ -2,14 +2,14 @@
 body { font-family: sans-serif; }
 #map { width: 100vw; height: 100vh; }
 
-/* ── Teemapainikkeet ──────────────────────────────────── */
-.teema-control {
+/* ── Näkymävalitsin ───────────────────────────────────── */
+.nakyma-control {
   background: white;
   padding: 5px 7px;
   border-radius: 4px;
   box-shadow: 0 1px 5px rgba(0,0,0,.4);
 }
-.teema-control button {
+.nakyma-control button {
   display: block;
   width: 100%;
   margin: 2px 0;
@@ -21,58 +21,110 @@ body { font-family: sans-serif; }
   font-size: 12px;
   white-space: nowrap;
 }
-.teema-control button.aktiivinen {
+.nakyma-control button.aktiivinen {
   background: #3388ff;
   color: white;
   border-color: #3388ff;
 }
+.nakyma-control button.toiminto {
+  margin-top: 7px;
+  border-top: 1px solid #eee;
+  color: #333;
+}
+.nakyma-control button.toiminto:hover { background: #f0f0f0; }
 
 /* ── Popup ────────────────────────────────────────────── */
-.pu { min-width: 280px; max-width: 400px; }
+.pu { min-width: 330px; max-width: 400px; }
 .pu-otsikko { font-weight: bold; font-size: 14px; margin-bottom: 8px; }
 .pu-tunnus { color: #777; font-weight: normal; }
 
-.pu-kuvat { display: flex; gap: 5px; margin-bottom: 10px; flex-wrap: wrap; }
+/* Kuvat jakavat yhden rivin — muuten ne pinoutuvat ja työntävät
+   viranomaisen Tallenna-napin popupin näkymän alapuolelle. */
+.pu-kuvat { display: flex; gap: 5px; margin-bottom: 10px; }
 .pu-kuvat img {
-  height: 110px; width: auto; cursor: zoom-in;
+  flex: 1 1 0; min-width: 0;
+  height: 86px; object-fit: cover; cursor: zoom-in;
   border-radius: 3px; border: 1px solid #ddd;
 }
 
-.pu-attr { font-size: 12px; margin-bottom: 10px; }
+.pu-attr { font-size: 12px; }
 .pu-attr table { border-collapse: collapse; width: 100%; }
 .pu-attr td { padding: 2px 5px; border-bottom: 1px solid #eee; vertical-align: top; }
 .pu-attr td:first-child { color: #555; white-space: nowrap; font-weight: 600; }
 
-.pu-viranomainen {
-  font-size: 12px; padding: 5px 8px; border-radius: 3px;
-  margin-bottom: 8px; border-left: 3px solid #ccc; background: #f8f8f8;
+/* ── Popupin osiot ────────────────────────────────────── */
+.pu-kaava, .pu-vir {
+  margin-top: 10px;
+  padding: 7px 9px;
+  border-left: 3px solid #ccc;
+  background: #f8f8f8;
+  border-radius: 0 3px 3px 0;
 }
-.lk-suojelukohde    { border-color: #e31a1c !important; background: #fdd !important; }
-.lk-huomionarvoinen { border-color: #ff7f00 !important; background: #ffe8cc !important; }
-.lk-ei-arvoja       { border-color: #999    !important; background: #eee !important; }
+.pu-kaava { border-left-color: #3388ff; }
+.pu-vir   { margin-top: 8px; background: #f2f4f7; }
+.pu-kaava h4, .pu-vir h4 {
+  font-size: 11px; text-transform: uppercase; letter-spacing: .04em;
+  color: #444; margin-bottom: 5px;
+}
+.pu-lukuarvo { font-size: 12px; font-weight: 600; color: #222; }
+.pu-kaava-luku { display: flex; gap: 6px; align-items: baseline; padding: 5px 9px; }
+.pu-kaava-otsake {
+  font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: #444;
+}
+.pu-vir-tyhja { font-size: 11px; color: #999; font-style: italic; }
 
-.pu-kommentit h4 { font-size: 12px; margin: 8px 0 4px; color: #333; }
-.pu-kommentti { font-size: 11px; padding: 4px 0; border-bottom: 1px solid #eee; }
-.pu-kommentti-meta { color: #888; margin-top: 2px; }
-.pu-ei-kommentteja { font-size: 11px; color: #999; }
+/* ── Luokituspainikkeet ───────────────────────────────── */
+.pu-napit { display: flex; flex-direction: column; gap: 3px; }
+.pu-napit button {
+  text-align: left;
+  padding: 4px 8px 4px 22px;
+  font-size: 12px;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  background: white;
+  cursor: pointer;
+  position: relative;
+}
+.pu-napit button::before {
+  content: "";
+  position: absolute;
+  left: 7px; top: 50%;
+  width: 9px; height: 9px;
+  margin-top: -4.5px;
+  border-radius: 50%;
+  background: var(--lk-vari, #999);
+}
+.pu-napit button:hover { background: #f0f0f0; }
+.pu-napit button.aktiivinen {
+  border-color: #333;
+  background: #333;
+  color: white;
+  font-weight: 600;
+}
 
-.pu-lomake label {
-  display: block; font-size: 11px; margin-top: 8px; margin-bottom: 2px; color: #555;
+/* ── Viranomaisen lomake ──────────────────────────────── */
+.pu-vir-lomake { background: #eef2f7; }
+.pu-kentta { display: block; margin-top: 7px; }
+.pu-kentta > span {
+  display: block; font-size: 11px; color: #555; margin-bottom: 2px;
 }
-.pu-lomake textarea,
-.pu-lomake input[type=text],
-.pu-lomake select {
-  width: 100%; font-size: 12px; padding: 3px 5px;
-  border: 1px solid #ccc; border-radius: 3px;
+.pu-kentta textarea,
+.pu-kentta input[type=text] {
+  width: 100%; font-size: 12px; padding: 3px 5px; font-family: inherit;
+  border: 1px solid #bbb; border-radius: 3px; background: white;
 }
-.pu-lomake textarea { height: 60px; resize: vertical; }
-.pu-lomake-footer { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
-.pu-lomake button {
+.pu-kentta textarea { height: 46px; resize: vertical; }
+
+.pu-lomake-footer { display: flex; align-items: center; gap: 9px; margin-top: 9px; }
+.pu-lomake-footer button {
   padding: 5px 14px; background: #3388ff; color: white;
   border: none; border-radius: 3px; cursor: pointer; font-size: 12px;
 }
-.pu-lomake button:hover { background: #2266cc; }
-.pu-lomake-viesti { font-size: 11px; color: #555; }
+.pu-lomake-footer button:hover:not(:disabled) { background: #2266cc; }
+.pu-lomake-footer button:disabled { background: #aaa; cursor: default; }
+.pu-lomake-viesti { font-size: 11px; color: #555; flex: 1; }
+.pu-lomake-viesti.onnistui { color: #1a7f37; font-weight: 600; }
+.pu-lomake-viesti.virhe    { color: #c00; }
 
 /* ── Lightbox ─────────────────────────────────────────── */
 #lightbox {
