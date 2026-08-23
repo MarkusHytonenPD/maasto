@@ -1,0 +1,13 @@
+{
+    "nimi": "Heinlansi_rakult",
+    "tasot": [],
+    "naytettavat_sarakkeet": [
+        "tunnus",
+        "nimi",
+        "käyttötarkoitus (vanha luokitus) (selite)",
+        "vuosi",
+        "huom",
+        "suojeluhalu"
+    ],
+    "apps_script_url": ""
+}
