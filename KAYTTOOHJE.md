@@ -7,21 +7,31 @@ GitHub Pages, Python-riippuvuudet) on kuvattu erikseen [README.md](README.md):ss
 
 ## Kokonaiskuva: mikä ajetaan missä
 
-Työnkulku on kaksiosainen.
+Työnkulku on kolmiosainen: julkaisu, luokittelu selaimessa ja luokitusten
+palautus GeoPackageen.
 
 ```
-  OMA KONE                              GITHUB
-  ────────                              ──────
+  OMA KONE                              GITHUB                      GOOGLE
+  ────────                              ──────                      ──────
   kuvat + GPX-lokit                     repo MarkusHytonenPD/maasto
   GeoPackage (QGIS/QField)                  ├── projektit/[projekti]/kuvat/
           │                                 │   └── ky_[tunnus]_kuva1..3.jpg
           ▼                                 ├── projektit/[projekti]/data/
   python3 pipeline.py  ──── git push ──▶    │   └── kohteet.geojson
-  (nimeää kuvat, tekee geojsonin,           └── docs/  → GitHub Pages
-   commitoi ja pushaa itse)                          │
+  tila 1 / 2                                └── docs/  → GitHub Pages
+                                                     │
                                                      ▼
                                        https://markushytonenpd.github.io/maasto/[projekti]/
-                                       (kuka tahansa selaimella, myös puhelimella)
+                                                     │
+                            kaavoittaja ─────────────┤
+                            (luokittelee selaimessa, │
+                             lataa GeoJSONin)        │
+                                                     └── viranomainen ──▶ Sheet
+                                                         (kirjaa lausunnon)   │
+          ┌──────────────────────────────────────────────────────────────────┘
+          ▼
+  python3 pipeline.py  tila 3
+  (yhdistää molemmat takaisin GeoPackageen)
 ```
 
 **Pipeline ajetaan aina omalta koneelta.** Se tarvitsee paikalliset kuvat, GPX-lokit
@@ -29,7 +39,11 @@ ja GeoPackagen sekä paikallisen kloonin repostosta — mitään näistä ei ole
 Pipeline hoitaa julkaisun itse: se commitoi ja pushaa tulokset.
 
 **Karttaa katsotaan GitHubista.** Selainsovellus on GitHub Pagesissa eikä katsoja
-tarvitse mitään asennettua — pelkkä linkki riittää.
+tarvitse mitään asennettua — pelkkä linkki riittää. Viranomainen ei tarvitse
+Google-tiliä: lausunto tallentuu Sheetiin Apps Script -endpointin kautta.
+
+**Luokitukset palaavat GeoPackageen tilassa 3.** Kaavoittajan selainluokitukset
+kulkevat ladattuna GeoJSON-tiedostona, viranomaisen lausunnot haetaan Sheetsistä.
 
 ---
 
@@ -41,7 +55,11 @@ tarvitse mitään asennettua — pelkkä linkki riittää.
 - GPX-lokit, jos mukana on järjestelmäkameran kuvia joissa ei ole GPS:ää
 - GeoPackagen jossa rakennukset ja `tunnus`-sarake (QGIS/QField-vienti)
 - tämän repon paikallisena kloonina, push-oikeudet GitHubiin
-- Python-riippuvuudet: `pip install geopandas pillow pyproj gpxpy piexif`
+- Python-riippuvuudet:
+  `pip install geopandas pillow pyproj gpxpy piexif pandas requests`
+  `pip install google-api-python-client google-auth google-auth-oauthlib`
+- kertaluonteinen Google-kirjautuminen: `python3 auth_pipeline.py`
+  (tarvitaan vain viranomaislausuntojen Sheetin luontiin, ks. README kohta 4)
 
 ### Ajo
 
@@ -56,7 +74,8 @@ Skripti kysyy vuorollaan:
 | **Projekti** | Kansion nimi `projektit/`-hakemistossa. Uusi nimi luo projektin: `config.json`, `docs/[projekti]/index.html`, ja pushaa ne. |
 | **GeoPackage-tiedosto** | Polku .gpkg-tiedostoon. Ei kopioida repoon. |
 | **Layer-nimi** | Taso GeoPackagen sisällä. |
-| **Tila** | `1` = pipeline (automaattinen), `2` = sijoita käsin. |
+| **Tila** | `1` = pipeline (automaattinen), `2` = sijoita käsin, `3` = päivitä luokitukset GeoPackageen. |
+| **Näytettävät sarakkeet** | Mitkä GeoPackagen sarakkeet näkyvät kartan popupissa. Numerot tai nimet pilkulla eroteltuna, Enter = edellinen valinta (tai kaikki). Valinta tallentuu `config.json`:iin. |
 | **Kuvakansio** | Vain tila 1. **Anna kansio jossa on vain tämän erän uudet kuvat.** |
 | **Hakuetäisyydet** | Kuinka läheltä rakennusta etsitään: puhelin 60 m, drone 300 m, järj.kamera 300 m. Enter = oletus. |
 | **GPX-tiedostoja? (k/e)** | `k` jos mukana on geotägäämättömiä järjestelmäkamerakuvia. |
@@ -109,6 +128,37 @@ anna tunnus ja kuvan polku vuorotellen, tyhjä tunnus lopettaa. Kuva menee seura
 vapaaseen numeroon. Lisäys kirjataan kirjanpitoon, mutta duplikaatista vain
 varoitetaan — käsin lisääminen on tietoinen valinta eikä sitä estetä.
 
+### Tila 3 — luokitusten päivitys GeoPackageen
+
+Palauttaa selaimessa tehdyt luokitukset alkuperäiseen GeoPackageen, jotta QGIS
+näkee ne. Tila ei kysy kuvakansiota, hakuetäisyyksiä eikä GPX-tiedostoja.
+
+| Kysymys | Selitys |
+|---|---|
+| **Kaavoittajan luokitus-GeoJSON** | Kartan **Lataa kaavoittajan suositukset** -napin tuottama tiedosto (`kaavoittajan_suositus_[projekti]_[pvm].geojson`, yleensä Lataukset-kansiossa). **Enter ohittaa** — silloin päivitetään vain viranomaisdata. |
+| **Tallennus** | `1` = päälle, `2` = uudella nimellä (kopio, oletus `[nimi]_paivitetty.gpkg`). |
+| **Viedäänkö myös kohteet.gpkg projektikansioon?** | Kopio `projektit/[projekti]/data/kohteet.gpkg`:hen. |
+| **Viedäänkö kohteet.geojson ja pushataanko?** | Päivittää kartan näyttämään yhdistetyn datan. |
+
+Viranomaisdata haetaan Sheetsistä automaattisesti, jos `config.json`:ssa on
+`sheets_id`. Haku tehdään julkisena CSV:nä eikä vaadi kirjautumista.
+
+**Päivitys tehdään paikan päällä SQLitellä**, ei tiedostoa uudelleen
+kirjoittamalla. Samaan GeoPackageen tallennetut **QGIS-tyylit ja muut tasot
+säilyvät** sekä päällekirjoituksessa että kopiossa. Puuttuvat sarakkeet
+(`luokitus_vir`, `kommentti_vir`, `nimi_vir`, `virasto_vir`) lisätään tyhjinä.
+
+Lopuksi tulostetaan montako riviä päivittyi kummastakin lähteestä ja mitkä
+tunnukset eivät löytyneet GeoPackagesta:
+
+```
+  Päivitetty: /polku/ky_ita.gpkg
+    Kaavoittajan luokituksia:   61
+    Viranomaislausuntoja:       4
+    ⚠ Tunnuksia ei löytynyt GeoPackagesta: 2  (EI_OLE_8888, EI_OLE_9999)
+      Yleisin syy: väärä projekti tai vanhentunut GeoPackage.
+```
+
 ### Ajon viestit
 
 | Viesti | Mitä tehdä |
@@ -141,22 +191,65 @@ minuutin, ja selain kannattaa päivittää kovalla latauksella (Ctrl+F5).
 - **Pohjakartta:** Maastokartta (oletus) tai Taustakartta, oikean yläkulman valitsimesta.
 - **Kaavatasot ym.:** projektin `config.json`:iin määritellyt WMS-tasot tulevat samaan
   valitsimeen.
-- **Teemapainikkeet** vasemmassa yläkulmassa: *Oma luokitus* (A+/A/B/C) tai
-  *Viranomaisen luokitus* (Suojelukohde / Huomionarvoinen / Ei erityisiä arvoja).
-  Viranomaisteema hakee luokitukset Google Sheetsistä.
-- **Kohteen popup:** kuvat (klikkaus suurentaa lightboxiin), GeoPackagen attribuutit
-  taulukkona, viranomaisen luokitus, kommentit ja lomake uuden kommentin lisäämiseen.
-- **Kommentointi** tallentuu Google Sheetsiin Apps Script -endpointin kautta.
+- **Näkymävalitsin** vasemmassa yläkulmassa: *Kaavoittajan suositus* tai
+  *Viranomaisen luokitus*. Valinta määrää sekä pisteiden värityksen että sen,
+  kumpi osio popupissa on muokattavissa.
+- **Kohteen popup:** kuvat (klikkaus suurentaa lightboxiin), valitut attribuutit
+  taulukkona (`naytettavat_sarakkeet`), kaavoittajan suositus ja viranomaisen
+  lausunto omina osioinaan.
 
-> **Kommentointi vaatii `SHEETS_URL`:n.** Se on tällä hetkellä tyhjä `docs/config.js`:ssä,
-> joten kommentit ja viranomaisluokitukset eivät toimi ennen kuin Apps Script -endpoint
-> on täytetty (README, kohta 4). Kartta, kuvat ja attribuutit toimivat ilmankin.
+#### Luokitusasteikko
+
+Sama kolmiportainen asteikko molemmilla. Arvot tallentuvat GeoPackageen
+merkkijonoina (`potentiaali`-sarake), joten QGIS-symboloinnit toimivat ennallaan.
+
+| Väri | Selite kartalla | Arvo datassa |
+|---|---|---|
+| harmaa | Ei merkintää | tyhjä tai `ei arvoja` |
+| sininen | Suositus säilyttämisestä | `paikallinen` |
+| punainen | Suojelukohde | `suojelukohde` |
+
+#### Kaavoittajan näkymä
+
+Popupin *Kaavoittajan suositus* -osiossa on kolme painiketta. Valinta tallentuu
+**vain selaimen localStorageen** (avain `luokitukset_kentta_[projekti]`) ja
+pisteen väri muuttuu heti. Mitään ei lähetetä verkkoon.
+
+Nappi **Lataa kaavoittajan suositukset** tuottaa tiedoston
+`kaavoittajan_suositus_[projekti]_[pvm].geojson`, jossa muutokset ovat mukana.
+Tämä tiedosto annetaan pipelinelle tilassa 3.
+
+> **Muutokset ovat vain siinä selaimessa jossa ne on tehty.** Tyhjennä
+> selaimen tiedot vasta kun olet ladannut tiedoston ja ajanut tilan 3.
+
+#### Viranomaisen näkymä
+
+Kun *Viranomaisen luokitus* on valittuna, popupin alaosa on lomake: luokitus,
+kommentti, nimi ja virasto sekä **Tallenna**. Tallennus lähtee Apps Script
+-endpointiin ja päätyy projektin Sheetiin — yksi rivi per rakennustunnus, eli
+saman kohteen uusi lausunto päivittää vanhan.
+
+- Nimi ja virasto muistetaan seuraavalle kohteelle.
+- Kartta hakee Sheetin nykytilan käynnistyessään, joten toinen viranomainen
+  näkee jo kirjatut lausunnot eikä ylikirjoita niitä vahingossa.
+- Onnistumisesta tulee *Lausunto tallennettu ✓*, virheestä selkeä ilmoitus
+  jossa lukee että lausuntoa **ei** tallennettu. Yritä silloin uudelleen.
+
+Kaavoittajan näkymässä viranomaisen osio on vain luku.
+
+> **Tallennus vaatii `apps_script_url`:n** projektin `config.json`:issa. Jos se
+> puuttuu, Tallenna-nappi on pois käytöstä ja lomake kertoo syyn. Kartta, kuvat,
+> attribuutit ja kaavoittajan luokittelu toimivat ilmankin. Endpointin
+> deployaus: README kohta 4.
 
 ### Uusi projekti
 
 Riittää että antaa pipelinelle uuden projektinimen — se luo `projektit/[nimi]/`-rakenteen,
-`config.json`-pohjan ja `docs/[nimi]/index.html`:n sekä pushaa ne. WMS-tasot lisätään
-käsin projektin `config.json`:iin:
+`config.json`-pohjan ja `docs/[nimi]/index.html`:n, **luo viranomaislausuntojen Sheetin**
+ja pushaa ne. Sheet luodaan vain kerran per projekti (pipeline tunnistaa sen
+`sheets_id`-avaimesta).
+
+Projektin `config.json` ensimmäisen ajon jälkeen:
 
 ```json
 {
@@ -166,9 +259,22 @@ käsin projektin `config.json`:iin:
           "url": "https://ubigu.ubihub.io/geoserver/kaavarasterit/ows",
           "layer": "kaavarasterit:layer_nimi",
           "nakyva": true }
-    ]
+    ],
+    "naytettavat_sarakkeet": ["tunnus", "vuosi", "huom"],
+    "sheets_id": "1AbC...",
+    "sheets_valilehti": "Lausunnot",
+    "apps_script_url": ""
 }
 ```
+
+| Avain | Mistä tulee |
+|---|---|
+| `tasot` | Lisätään käsin. |
+| `naytettavat_sarakkeet` | Pipeline kysyy ajon alussa. |
+| `sheets_id`, `sheets_valilehti` | Pipeline täyttää Sheetin luonnissa. |
+| `apps_script_url` | **Täytetään käsin** Apps Script -deployauksen jälkeen (README kohta 4). Ilman tätä viranomainen ei voi tallentaa. |
+
+Muista pushata `config.json` kun muokkaat sitä käsin — kartta lukee sen GitHubista.
 
 ---
 
@@ -182,7 +288,14 @@ käsin projektin `config.json`:iin:
 | Uusi kuva ei ilmesty | Onko rakennuksella jo 3 kuvaa, tai ohittiko kirjanpito kuvan duplikaattina? Katso ajon yhteenveto. |
 | Kaavarasteri puuttuu, konsolissa CORS-virhe | GeoServeriin tarvitaan `Access-Control-Allow-Origin` — Ubigun ylläpito. Muu kartta toimii normaalisti. |
 | Pohjakartta ei lataudu | MML-avain puuttuu tai vanhentunut `docs/config.js`:stä. |
-| Kommentit: *Sheets-haku epäonnistui* | `SHEETS_URL` on tyhjä tai Apps Script -julkaisu ei ole käytössä. |
+| Popup näyttää väärät kentät | `naytettavat_sarakkeet` projektin `config.json`:issa. Aja pipeline ja valitse sarakkeet uudelleen, tai muokkaa käsin ja pushaa. |
+| Viranomaisen Tallenna-nappi harmaana | `apps_script_url` puuttuu `config.json`:sta tai sitä ei ole pushattu. |
+| *Tallennus epäonnistui: HTTP 401/403* | Apps Script -deployment ei ole tilassa *Käyttäjät: Kaikki*, tai URL on vanhan deploymentin. Tee uusi deployment ja päivitä URL. |
+| Viranomaisen lausunnot eivät näy kartalla | Kartta hakee ne `apps_script_url`:sta. Tarkista selaimen konsolista *Lausuntojen haku Sheetsistä epäonnistui*. |
+| Tila 3: *Sheetistä puuttuu sarakkeita* | Sheetin otsikkorivi on muuttunut. Palauta: `tunnus, luokitus_vir, kommentti_vir, nimi_vir, virasto_vir`. |
+| Tila 3: *Tunnuksia ei löytynyt GeoPackagesta* | GeoJSON tai Sheet on eri projektista, tai GeoPackage on vanhentunut. |
+| Pipeline varoittaa julkisesta muokkausoikeudesta | Drive-kansion linkkijako on *muokkaaja*. Vaihda kansion jaoksi **Rajoitettu** — muuten kuka tahansa Sheetin linkin saanut voi muokata lausuntoja. |
+| *Google-kirjautumista ei ole tehty* | Aja `python3 auth_pipeline.py`. |
 
 ## Huomioitavaa
 
@@ -195,3 +308,24 @@ käsin projektin `config.json`:iin:
 - Rakennusta kohti mahtuu **3 kuvaa** — kartan popup lukee kentät `kuva1`–`kuva3`.
 - GeoPackagea ei tallenneta repoon, joten pidä siitä huolta itse; pipeline lukee sen
   joka ajolla uudelleen ja rakentaa geojsonin sen pohjalta.
+- **Viranomaislausuntojen Sheet on julkisesti luettava.** Se on tarkoituksellista:
+  pipeline hakee datan ilman kirjautumista, eikä viranomainen tarvitse Google-tiliä.
+  Älä siis kirjaa Sheetiin mitään mitä ei voi julkaista.
+- **Drive-kansion jakoasetus periytyy Sheeteihin.** Jos kansio on jaettu linkillä
+  muokkausoikeudella, jokainen sinne luotu Sheet on julkisesti muokattava eikä
+  oikeutta voi laskea tiedostotasolla — Google estää sen. Pidä kansio
+  *Rajoitettu*-tilassa; pipeline antaa lukuoikeuden erikseen jokaiselle Sheetille.
+- **`credentials/`-kansio ei mene gitiin.** Siellä ovat OAuth-tunnistetiedot.
+
+## Testit
+
+```bash
+python3 test_pipeline.py      # kuvien nimeäminen, GPX, duplikaattikirjanpito
+python3 test_tila3.py         # GeoPackage-päivitys, QGIS-tyylien säilyminen
+python3 test_kartta.py        # karttasovellus oikeassa selaimessa (Playwright)
+python3 test_sheets_live.py --live   # Sheets-integraatio; LUO ja poistaa oikean Sheetin
+```
+
+Kolme ensimmäistä eivät koske verkkoon, projekteihin eivätkä gitiin. `test_kartta.py`
+vaatii `pip install playwright && playwright install chromium` ja ohittuu siististi
+jos sitä ei ole. Viimeinen vaatii `--live`-lipun eikä käynnisty vahingossa.
