@@ -128,19 +128,77 @@ lukuoikeudella linkin tietäville (CSV-hakua varten) ja kirjoitusoikeudella
 
 #### 4.4 Apps Script -endpoint (kerran per projekti)
 
-1. Avaa Sheet Drivesta (pipeline tulostaa URL:n)
-2. **Laajennukset → Apps Script**
-3. Poista olemassa oleva koodi ja liitä `viranomainen_apps_script.gs`:n sisältö
-4. Tallenna
-5. **Ota käyttöön → Uusi deployment → Tyyppi: Web-sovellus**
-   - Suorittaja: **Minä**
-   - Käyttäjät: **Kaikki**
-6. Kopioi Web app URL
-7. Lisää se projektin `projektit/[projekti]/config.json`:iin avaimeen
-   `"apps_script_url"` ja **pushaa** — kartta lukee sen GitHubista
+Tehdään vasta kun pipeline on luonut Sheetin (kohta 4.3) — skripti liitetään
+Sheetin sisään, joten Sheetin pitää olla olemassa.
 
-Skripti on Sheetiin sidottu, joten spreadsheet-ID:tä ei tarvitse kopioida
-mihinkään. Ilman kohtaa 7 kartan Tallenna-nappi on pois käytöstä ja kertoo syyn.
+**1. Avaa Sheet.** Pipeline tulostaa URL:n muodossa
+`https://docs.google.com/spreadsheets/d/[ID]/edit`. Varmista selaimen oikeasta
+yläkulmasta että olet kirjautunut tilillä jolla on **muokkausoikeus** Sheetiin
+(pipeline jakaa sen `SHEET_JAKO_EMAILIT`-osoitteille). Väärällä tilillä
+Laajennukset-valikko on harmaana.
+
+**2. Laajennukset → Apps Script.** Avautuu uusi välilehti, projektin nimenä
+Sheetin nimi. Editorissa on tiedosto `Code.gs` ja siinä tyhjä `myFunction()`.
+
+**3. Korvaa koodi.** Klikkaa editoriin, **Ctrl+A** ja **Delete**, liitä sitten
+`viranomainen_apps_script.gs`:n koko sisältö. Älä muuta `SPREADSHEET_ID`-vakiota
+— se jätetään tyhjäksi, koska skripti on sidottu tähän Sheetiin ja löytää sen
+itse.
+
+**4. Tallenna** (levykeikoni tai Ctrl+S). Jos projektin nimeä kysytään, mikä
+tahansa nimi kelpaa.
+
+**5. Ota käyttöön → Uusi käyttöönotto** (*Deploy → New deployment*).
+Klikkaa **Valitse tyyppi** -kohdan rataskuvaketta ja valitse **Verkkosovellus**
+(*Web app*). Täytä:
+
+| Kenttä | Arvo |
+|---|---|
+| Kuvaus | esim. `v1` |
+| Suorita sovelluksena | **Minä** (oma osoitteesi) |
+| Kenellä on käyttöoikeus | **Kaikki** |
+
+> **"Kaikki" on eri asia kuin "Kaikki, joilla on Google-tili".** Viranomainen ei
+> kirjaudu mihinkään, joten väärä valinta tuottaa kartalla virheen
+> *Tallennus epäonnistui: HTTP 401*.
+
+**6. Ota käyttöön.** Ensimmäisellä kerralla Google pyytää valtuutuksen:
+*Valtuuta käyttöoikeus* → valitse tili → näyttöön tulee **"Google ei ole
+vahvistanut tätä sovellusta"** → **Lisäasetukset** → **Siirry projektiin
+(ei turvallinen)** → **Salli**. Varoitus on normaali omalle skriptille.
+
+**7. Kopioi verkkosovelluksen URL.** Se päättyy **`/exec`**:
+`https://script.google.com/macros/s/AKfycb.../exec`
+
+> Älä käytä `/dev`-osoitetta — se toimii vain sinulle kirjautuneena.
+
+**8. Testaa endpoint** avaamalla `/exec`-osoite selaimen välilehdellä. Oikea
+vastaus on JSON:
+> `{"status":"ok","rivit":[]}`
+>
+> Jos näet HTML-virhesivun tai kirjautumispyynnön, kohta 5 on väärin — korjaa
+> käyttöoikeus ja tee **uusi** käyttöönotto.
+
+**9. Lisää URL projektin configiin** ja pushaa:
+
+```bash
+# projektit/[projekti]/config.json
+"apps_script_url": "https://script.google.com/macros/s/AKfycb.../exec"
+
+git add projektit/[projekti]/config.json
+git commit -m "Lisää apps_script_url: [projekti]"
+git push
+```
+
+Kartta lukee configin GitHubista, joten **ilman pushia muutos ei näy**. Kun URL
+on paikallaan, viranomaisen Tallenna-nappi aktivoituu; siihen asti se on
+harmaana ja kertoo syyn.
+
+> **Jos muutat skriptin koodia myöhemmin**, pelkkä tallennus ei riitä:
+> **Ota käyttöön → Hallinnoi käyttöönottoja** → kynäkuvake → **Versio: Uusi
+> versio** → *Ota käyttöön*. Näin `/exec`-osoite pysyy samana eikä configia
+> tarvitse päivittää. Kokonaan uusi käyttöönotto antaisi **uuden URL:n**, joka
+> pitäisi vaihtaa configiin.
 
 ### 5. GitHub Pages
 
