@@ -182,6 +182,69 @@ tarkista(tilastot["kuvilla"] == 2, f"molemmat rakennukset saivat kuvan: {tilasto
 tarkista(kuvat_15["kuva1"].endswith("ky_15_kuva1.jpg") and kuvat_15["kuva2"].endswith("ky_15_kuva2.jpg"),
          "tunnukselle 15 kaksi kuva-URL:ää eri eristä")
 
+print("\n[10] liita_kuvat_gpkg — GeoPackagen viittaus voittaa, GPS täyttää loput")
+G      = BASE / "gpkg-liitos"
+LAHDE  = G / "lahde" / "DCIM"
+PROJ2  = G / "projekti"
+LAHDE.mkdir(parents=True)
+(PROJ2 / "kuvat").mkdir(parents=True)
+(PROJ2 / "data").mkdir(parents=True)
+P.KUVA_POLKU = PROJ2 / "kuvat"
+P.DATA_POLKU = PROJ2 / "data"
+
+# Eri aikaleimat, jottei kirjanpidon avaimet törmää
+for i, nimi in enumerate(["a1.jpg", "a2.jpg", "b1.jpg", "b2.jpg", "b3.jpg",
+                          "c1.jpg", "d1.jpg"]):
+    tee_jpg(LAHDE / nimi, datetime.datetime(2026, 8, 1, 10, i))
+
+# Lähtötila: 102:lla kolme GPS:n liittämää kuvaa, 104:llä yksi
+kirjanpito = {}
+for tunnus, parit in {"102": [("b1.jpg", 1), ("b2.jpg", 2), ("b3.jpg", 3)],
+                      "104": [("d1.jpg", 1)]}.items():
+    for lahde_nimi, n in parit:
+        kohde = f"ky_{tunnus}_kuva{n}.jpg"
+        shutil.copy2(LAHDE / lahde_nimi, P.KUVA_POLKU / kohde)
+        P._merkitse_kasitellyksi(kirjanpito, P._kuva_avain(LAHDE / lahde_nimi), kohde, tunnus)
+
+gdf_g = gpd.GeoDataFrame(
+    {
+        "tunnus": ["101", "102", "104"],
+        # 101: gpkg-järjestys on käänteinen aakkosjärjestykseen -> todistaa että
+        # järjestys tulee GeoPackagesta eikä tiedostonimistä
+        "kuva1": ["DCIM/a2.jpg", "DCIM/c1.jpg", "DCIM/puuttuu.jpg"],
+        "kuva2": ["DCIM/a1.jpg", None, None],
+        "kuva3": [None, None, None],
+        "geometry": [Point(500000, 6900000)] * 3,
+    },
+    crs="EPSG:3067",
+)
+
+tilastot = P.liita_kuvat_gpkg(G / "lahde", gdf_g)
+kirja = json.loads((P.DATA_POLKU / "kasitellyt.json").read_text(encoding="utf-8"))["kuvat"]
+lahde_per_kohde = {t["kohde"]: a.split("|")[0] for a, t in kirja.items()}
+
+tarkista(lahde_per_kohde.get("ky_101_kuva1.jpg") == "a2.jpg"
+         and lahde_per_kohde.get("ky_101_kuva2.jpg") == "a1.jpg",
+         f"101: järjestys GeoPackagesta, ei tiedostonimistä ({lahde_per_kohde.get('ky_101_kuva1.jpg')})")
+tarkista(lahde_per_kohde.get("ky_102_kuva1.jpg") == "c1.jpg",
+         f"102: GeoPackagen kuva sai paikan 1 ({lahde_per_kohde.get('ky_102_kuva1.jpg')})")
+tarkista(lahde_per_kohde.get("ky_102_kuva2.jpg") == "b1.jpg"
+         and lahde_per_kohde.get("ky_102_kuva3.jpg") == "b2.jpg",
+         "102: GPS:n kuvat siirtyivät jäljelle jääneille paikoille")
+tarkista(not any(v == "b3.jpg" for v in lahde_per_kohde.values())
+         and tilastot["poistettu"] == 1,
+         f"102: paikkansa menettänyt kuva poistui ja kirjanpidosta ({tilastot['poistettu']})")
+tarkista((P.KUVA_POLKU / "ky_104_kuva1.jpg").exists()
+         and lahde_per_kohde.get("ky_104_kuva1.jpg") == "d1.jpg"
+         and tilastot["ohitettu"] == 1,
+         f"104: puuttuva viittaus ohitetaan, nykyinen kuva jää ({tilastot['ohitettu']})")
+tarkista(not list(P.KUVA_POLKU.glob("*siirto*")), "väliaikaisnimiä ei jäänyt kansioon")
+
+# Sama ajo uudelleen ei saa muuttaa mitään
+tilastot2 = P.liita_kuvat_gpkg(G / "lahde", gdf_g)
+tarkista(tilastot2["ok"] == 0 and tilastot2["siirretty"] == 0 and tilastot2["poistettu"] == 0,
+         f"toinen ajo ei muuta mitään: {tilastot2}")
+
 print("\n" + "=" * 60)
 print("KAIKKI OK" if not virheet else f"{len(virheet)} VIRHETTÄ:\n  - " + "\n  - ".join(virheet))
 print("=" * 60)

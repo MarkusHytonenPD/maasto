@@ -552,6 +552,137 @@ def nimeä_kuvat(kuvakansio: Path, gdf, etaisyydet: dict) -> dict:
 
 
 # ══════════════════════════════════════════════════════════════════
+#  VAIHE 2b — KUVIEN LIITOS GEOPACKAGEN VIITTAUKSISTA
+# ══════════════════════════════════════════════════════════════════
+
+def _dcim_nimi(arvo) -> str | None:
+    """GeoPackagen kuva-arvo 'DCIM/JPEG_x.jpg' → 'jpeg_x.jpg'. Tyhjä → None."""
+    if not isinstance(arvo, str) or not arvo.strip():
+        return None
+    return arvo.strip().replace("\\", "/").split("/")[-1].lower()
+
+
+def liita_kuvat_gpkg(kuvakansio: Path, gdf) -> dict:
+    """
+    Liittää kuvat GeoPackagen kuva1..3-sarakkeiden perusteella.
+
+    Kenttäsovellus kirjaa kuvaviittauksen suoraan inventointiin, joten se on
+    tarkempi lähde kuin EXIF-GPS: järjestelmäkameran kuvat geotägätään GPX-
+    jäljestä, ja kellodrifti siirtää pisteitä jäljen suuntaan jopa kilometrejä.
+    GPS-liitos (nimeä_kuvat) on siksi vaihtoehto, ei oletus.
+
+    Kohteen kuvasarja muodostetaan järjestyksessä:
+      1. GeoPackagen kuva1..3 sen omassa järjestyksessä
+      2. kansiossa jo olevat kuvat joita GeoPackage ei mainitse
+    ja katkaistaan kolmeen, koska kartta näyttää enintään kolme kuvaa.
+    Näin kenttäkirjaus voittaa aina, mutta GPS:n liittämiä kuvia ei hukata
+    turhaan — ne täyttävät jäljelle jäävät paikat.
+
+    Palauttaa tilastot {ok, siirretty, poistettu, ohitettu, taynna, duplikaatti}.
+    """
+    print("\n--- Vaihe 2: Kuvien liitos GeoPackagen viittauksista ---")
+    KUVA_POLKU.mkdir(parents=True, exist_ok=True)
+
+    lahteet = {p.name.lower(): p for p in kuvakansio.rglob("*") if p.is_file()}
+    print(f"  Lähdekansiossa {len(lahteet)} tiedostoa: {kuvakansio}")
+
+    kasitellyt = _lue_kasitellyt()
+    # kohdetiedosto → lähdekuvan nimi, jotta tiedetään mistä nykyiset ovat
+    lahde_per_kohde = {t["kohde"]: a.split("|")[0] for a, t in kasitellyt.items()}
+
+    def _avain(lahde_nimi: str) -> str:
+        """Kirjanpidon avain: vanha jos on, muuten lasketaan lähdetiedostosta."""
+        vanha = next((a for a in kasitellyt if a.split("|")[0] == lahde_nimi), None)
+        if vanha:
+            return vanha
+        polku = lahteet.get(lahde_nimi)
+        return _kuva_avain(polku) if polku else lahde_nimi
+
+    ok = siirretty = poistettu = ohitettu = taynna = duplikaatti = 0
+
+    for _, rivi in gdf.iterrows():
+        tunnus = _normalisoi_tunnus(rivi[TUNNUS_SARAKE])
+        if not tunnus:
+            continue
+
+        gpkg_lista = [n for n in (_dcim_nimi(rivi.get(s)) for s in KUVA_SARAKKEET) if n]
+
+        # Kansiossa olevat kuvat nykyisessä paikkajärjestyksessä
+        nykyiset = []
+        for n in range(1, 4):
+            tiedosto = KUVA_POLKU / f"ky_{tunnus}_kuva{n}.jpg"
+            if tiedosto.exists():
+                nykyiset.append((tiedosto.name, lahde_per_kohde.get(tiedosto.name)))
+        if not gpkg_lista and not nykyiset:
+            continue
+
+        # Haluttu järjestys: GeoPackage ensin, sitten muut kansiossa olevat
+        haluttu = list(gpkg_lista)
+        for nimi, lahde in nykyiset:
+            if lahde and lahde not in haluttu:
+                haluttu.append(lahde)
+            elif not lahde:
+                # Kirjanpidosta puuttuva kuva: säilytetään omana merkintänään
+                haluttu.append(f"?{nimi}")
+        yli = haluttu[3:]
+        haluttu = haluttu[:3]
+        taynna += len([x for x in yli if x in gpkg_lista])
+
+        puuttuvat = [n for n in haluttu
+                     if n in gpkg_lista and n not in lahteet
+                     and n not in [l for _, l in nykyiset]]
+        if puuttuvat:
+            for n in puuttuvat:
+                print(f"  ✗ tunnus {tunnus}: {n} ei löydy lähdekansiosta — ohitetaan")
+                ohitettu += 1
+            haluttu = [n for n in haluttu if n not in puuttuvat]
+
+        nykyinen_jarjestys = [l if l else f"?{nimi}" for nimi, l in nykyiset]
+        if nykyinen_jarjestys == haluttu:
+            duplikaatti += len(haluttu)
+            continue
+
+        # Väliaikaisnimet ensin, jottei uudelleennimeäminen törmää itseensä
+        tilapaiset, alkuperainen = {}, {}
+        for i, (nimi, lahde) in enumerate(nykyiset, start=1):
+            tunniste = lahde if lahde else f"?{nimi}"
+            tilapainen = KUVA_POLKU / f"ky_{tunnus}_siirto{i}.jpg"
+            (KUVA_POLKU / nimi).rename(tilapainen)
+            tilapaiset[tunniste]   = tilapainen
+            alkuperainen[tunniste] = nimi
+
+        for i, tunniste in enumerate(haluttu, start=1):
+            kohde = KUVA_POLKU / f"ky_{tunnus}_kuva{i}.jpg"
+            if tunniste in tilapaiset:
+                tilapaiset.pop(tunniste).rename(kohde)
+                if alkuperainen[tunniste] != kohde.name:
+                    print(f"  ~ tunnus {tunnus}: {alkuperainen[tunniste]} → {kohde.name}")
+                    siirretty += 1
+            else:
+                shutil.copy2(lahteet[tunniste], kohde)
+                print(f"  + tunnus {tunnus}: {tunniste} → {kohde.name}")
+                ok += 1
+            if not tunniste.startswith("?"):
+                _merkitse_kasitellyksi(kasitellyt, _avain(tunniste), kohde.name, tunnus)
+
+        # Paikkansa menettäneet: GeoPackage ei mainitse eikä tilaa jäänyt
+        for tunniste, tilapainen in tilapaiset.items():
+            print(f"  − tunnus {tunnus}: {tilapainen.name} poistuu "
+                  f"(paikat täyttyivät GeoPackagen kuvilla)")
+            tilapainen.unlink()
+            poistettu += 1
+            avain = next((a for a in kasitellyt if a.split("|")[0] == tunniste), None)
+            if avain:
+                kasitellyt.pop(avain)
+
+    _kirjoita_kasitellyt(kasitellyt)
+    print(f"  Kopioitu: {ok}, siirretty paikkaa: {siirretty}, poistettu: {poistettu}, "
+          f"ennallaan: {duplikaatti}, ei tilaa: {taynna}, ei löytynyt: {ohitettu}")
+    return {"ok": ok, "siirretty": siirretty, "poistettu": poistettu,
+            "ohitettu": ohitettu, "taynna": taynna, "duplikaatti": duplikaatti}
+
+
+# ══════════════════════════════════════════════════════════════════
 #  VAIHE 3 & 4b — GIT PUSH
 # ══════════════════════════════════════════════════════════════════
 
@@ -1651,6 +1782,60 @@ def main():
         if not kuvakansio.is_dir():
             print(f"VIRHE: Kansiota ei löydy: {kuvakansio}")
             input("Paina Enter sulkeaksesi...")
+            return
+
+        # --- Liitostapa ---
+        # GeoPackagen kuva1..3 on kenttäsovelluksen oma kirjaus ja siksi
+        # tarkempi kuin EXIF-GPS, jota GPX-geotägäyksen kellodrifti siirtää.
+        print("\nMiten kuvat liitetään kohteisiin?")
+        print("  1 = GeoPackagen kuvaviittaukset  (kuva1..3-sarakkeet)  [oletus]")
+        print("  2 = GPS-etäisyys                 (EXIF + GPX-geotägäys)")
+        liitostapa = input("Valinta (1/2) [1]: ").strip() or "1"
+        if liitostapa not in ("1", "2"):
+            print("Virheellinen valinta.")
+            input("Paina Enter sulkeaksesi...")
+            return
+
+        if liitostapa == "1":
+            puuttuvat_sarakkeet = [s for s in KUVA_SARAKKEET if s not in gdf_3067.columns]
+            if len(puuttuvat_sarakkeet) == len(KUVA_SARAKKEET):
+                print(f"VIRHE: GeoPackagesta puuttuvat sarakkeet {', '.join(KUVA_SARAKKEET)}"
+                      " — käytä GPS-liitosta (valinta 2).")
+                input("Paina Enter sulkeaksesi...")
+                return
+            tilastot = liita_kuvat_gpkg(kuvakansio, gdf_3067)
+            kuvia_lisatty = tilastot["ok"]
+            if kuvia_lisatty > 0 or tilastot["siirretty"] or tilastot["poistettu"]:
+                print("\n--- Vaihe 3: Git push (kuvat) ---")
+                git_push(
+                    f"Liitä kuvat GeoPackagen viittauksista: {PROJEKTI}",
+                    f"projektit/{PROJEKTI}/kuvat/",
+                    f"projektit/{PROJEKTI}/data/{KASITELLYT_TIEDOSTO}",
+                )
+            else:
+                print("\nVaihe 3 ohitettu — kuvat olivat jo paikallaan.")
+
+            geojson_tilastot = vie_geojson(gpkg_polku, layer_nimi)
+            print("\n--- Git push (data + config) ---")
+            git_push(
+                f"Päivitä kohteet.geojson ja config: {PROJEKTI}",
+                f"projektit/{PROJEKTI}/",
+                *kopioi_docsiin(),
+            )
+            print()
+            print("=" * 60)
+            print("  Valmis!")
+            print(f"  Kuvia kopioitu:      {tilastot['ok']}")
+            if tilastot["siirretty"]:
+                print(f"  Paikkaa siirretty:   {tilastot['siirretty']}")
+            if tilastot["poistettu"]:
+                print(f"  Poistettu:           {tilastot['poistettu']}  (paikat täyttyivät)")
+            if tilastot["ohitettu"]:
+                print(f"  Ei löytynyt:         {tilastot['ohitettu']}  (viittaus ilman tiedostoa)")
+            print(f"  Rakennuksia kuvilla: "
+                  f"{geojson_tilastot['kuvilla']} / {geojson_tilastot['rakennuksia']}")
+            print("=" * 60)
+            input("\nPaina Enter sulkeaksesi...")
             return
 
         def _kysy_etaisyys(nimi: str, oletus: int) -> int:

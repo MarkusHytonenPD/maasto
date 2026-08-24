@@ -76,15 +76,39 @@ Skripti kysyy vuorollaan:
 | **Layer-nimi** | Taso GeoPackagen sisällä. |
 | **Tila** | `1` = pipeline (automaattinen), `2` = sijoita käsin, `3` = päivitä luokitukset GeoPackageen. |
 | **Näytettävät sarakkeet** | Mitkä GeoPackagen sarakkeet näkyvät kartan popupissa. Numerot tai nimet pilkulla eroteltuna, Enter = edellinen valinta (tai kaikki). Valinta tallentuu `config.json`:iin. |
-| **Kuvakansio** | Vain tila 1. **Anna kansio jossa on vain tämän erän uudet kuvat.** |
-| **Hakuetäisyydet** | Kuinka läheltä rakennusta etsitään: puhelin 60 m, drone 300 m, järj.kamera 300 m. Enter = oletus. |
-| **GPX-tiedostoja? (k/e)** | `k` jos mukana on geotägäämättömiä järjestelmäkamerakuvia. |
+| **Kuvakansio** | Vain tila 1. GeoPackage-liitoksessa anna kansio jossa kuvat ovat (esim. `DCIM`-kansion yläpuolelta — alikansiot käydään läpi). GPS-liitoksessa **anna kansio jossa on vain tämän erän uudet kuvat.** |
+| **Liitostapa** | `1` = GeoPackagen `kuva1..3`-viittaukset (oletus), `2` = GPS-etäisyys. Ks. alla. |
+| **Hakuetäisyydet** | Vain GPS-liitos. Kuinka läheltä rakennusta etsitään: puhelin 60 m, drone 300 m, järj.kamera 300 m. Enter = oletus. |
+| **GPX-tiedostoja? (k/e)** | Vain GPS-liitos. `k` jos mukana on geotägäämättömiä järjestelmäkamerakuvia. |
 | **GPX-polut** | Yksi polku per rivi, tai kansio = kaikki sen .gpx-tiedostot. Tyhjä rivi lopettaa. |
 | **Kameran kellodrifti** | Minuutteina, yleensä `0`. Aikavyöhyke hoidetaan automaattisesti. |
 | **Suurin sallittu GPX-aukko** | Oletus 10 min. Ks. alla. |
 
 Tämän jälkeen ajo etenee itsestään: geotägäys → nimeäminen → kuvien push →
 GeoJSON-vienti → datan push → yhteenveto.
+
+### Kuvien liitostapa: GeoPackage vai GPS
+
+**Oletus on GeoPackagen kuvaviittaukset.** Kenttäsovellus kirjaa kuvan nimen
+suoraan inventointiin (`kuva1..3` = `DCIM/JPEG_*.jpg`), ja se on tarkempi lähde
+kuin EXIF-GPS: järjestelmäkameran kuvat geotägätään GPX-jäljestä, ja kellodrifti
+siirtää pisteitä jäljen suuntaan jopa kilometrejä. Kohteen kuvasarja muodostuu
+näin:
+
+1. GeoPackagen `kuva1..3` sen omassa järjestyksessä
+2. kansiossa jo olevat kuvat joita GeoPackage ei mainitse
+
+ja katkaistaan kolmeen, koska kartta näyttää enintään kolme kuvaa. Kenttäkirjaus
+voittaa siis aina, mutta aiemmin liitettyjä kuvia ei hukata turhaan — ne
+täyttävät jäljelle jäävät paikat. Paikkansa menettävä kuva poistetaan
+projektikansiosta; alkuperäinen on yhä lähtödatassa ja git-historiassa.
+
+Ajo on toistettavissa: toinen ajo samalla aineistolla ei muuta mitään.
+
+**GPS-liitos (valinta 2)** on tarpeen kun GeoPackagessa ei ole kuvaviittauksia —
+esimerkiksi kun kuvat on otettu erikseen kenttäsovelluksen ulkopuolella. Silloin
+kuvat liitetään EXIF-koordinaatin ja hakuetäisyyden perusteella, ja
+geotägäämättömille järjestelmäkamerakuville annetaan GPX-lokit.
 
 ### Työskentely erissä
 
