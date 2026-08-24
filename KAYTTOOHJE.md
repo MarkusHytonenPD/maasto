@@ -255,11 +255,18 @@ Tämä tiedosto annetaan pipelinelle tilassa 3.
 #### Viranomaisen näkymä
 
 Kun *Viranomaisen luokitus* on valittuna, popupin alaosa on lomake: luokitus,
-kommentti, nimi ja virasto sekä **Tallenna**. Tallennus lähtee Apps Script
--endpointiin ja päätyy projektin Sheetiin — yksi rivi per rakennustunnus, eli
-saman kohteen uusi lausunto päivittää vanhan.
+kommentti ja nimi sekä **Tallenna**. Tallennus lähtee Apps Script -endpointiin
+ja päätyy projektin Sheetiin.
 
-- Nimi ja virasto muistetaan seuraavalle kohteelle.
+**Kolme lausunnonantajaa.** Näkymävalitsimessa on *Kaavoittajan suositus* ja sen
+alla kolme tahoa: **LVV**, **Vastuumuseo** ja **Maakuntaliitto**. Valittu taho
+määrää sekä pisteiden värityksen että sen, kenen lausuntoa popupin lomake
+muokkaa. Sheetissä on yksi rivi per **(tunnus, taho)**, joten tahot kirjaavat
+toisistaan riippumatta eikä kukaan ylikirjoita toisen lausuntoa. Popup näyttää
+aina kaikkien kolmen kannan, jotta muiden näkemykset ovat esillä kirjattaessa.
+
+- Oma nimi muistetaan seuraavalle kohteelle. Nimeä **ei** esitäytetä Sheetistä:
+  muuten kollegan nimi tulisi omaan kenttään ja lausunto tallentuisi väärälle.
 - Kartta hakee Sheetin nykytilan käynnistyessään, joten toinen viranomainen
   näkee jo kirjatut lausunnot eikä ylikirjoita niitä vahingossa.
 - Onnistumisesta tulee *Lausunto tallennettu ✓*, virheestä selkeä ilmoitus
@@ -323,7 +330,8 @@ Muista pushata `config.json` kun muokkaat sitä käsin — kartta lukee sen GitH
 | Viranomaisen Tallenna-nappi harmaana | `apps_script_url` puuttuu `config.json`:sta tai sitä ei ole pushattu. |
 | *Tallennus epäonnistui: HTTP 401/403* | Apps Script -deployment ei ole tilassa *Käyttäjät: Kaikki*, tai URL on vanhan deploymentin. Tee uusi deployment ja päivitä URL. |
 | Viranomaisen lausunnot eivät näy kartalla | Kartta hakee ne `apps_script_url`:sta. Tarkista selaimen konsolista *Lausuntojen haku Sheetsistä epäonnistui*. |
-| Tila 3: *Sheetistä puuttuu sarakkeita* | Sheetin otsikkorivi on muuttunut. Palauta: `tunnus, luokitus_vir, kommentti_vir, nimi_vir, virasto_vir`. |
+| Tila 3: *Sheetistä puuttuu sarakkeita* | Sheetin otsikkorivi on muuttunut. Palauta: `tunnus, taho, luokitus_vir, kommentti_vir, nimi_vir`. |
+| Tila 3: *Ohitettu N riviä tuntemattomalla taholla* | Sheetin `taho`-sarakkeessa on muu arvo kuin `LVV`, `Vastuumuseo` tai `Maakuntaliitto` — korjaa kirjoitusasu, muuten lausunto ei päädy GeoPackageen. |
 | Tila 3: *Tunnuksia ei löytynyt GeoPackagesta* | GeoJSON tai Sheet on eri projektista, tai GeoPackage on vanhentunut. |
 | Pipeline varoittaa julkisesta muokkausoikeudesta | Drive-kansion linkkijako on *muokkaaja*. Vaihda kansion jaoksi **Rajoitettu** — muuten kuka tahansa Sheetin linkin saanut voi muokata lausuntoja. |
 | *Google-kirjautumista ei ole tehty* | Aja `python3 auth_pipeline.py`. |

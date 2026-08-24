@@ -76,15 +76,35 @@ KOMMENTTI_VIR_SARAKE = "kommentti_vir"  # viranomaisen kommentti
 NIMI_VIR_SARAKE      = "nimi_vir"       # viranomaisen nimi
 VIRASTO_VIR_SARAKE   = "virasto_vir"    # viranomaisen virasto
 
+# Viranomaistahot. Kolme lausunnonantajaa kirjaa saman kohteen toisistaan
+# riippumatta, joten Sheetissä on yksi rivi per (tunnus, taho) ja
+# GeoPackagessa omat sarakkeet per taho. Näin eriäviä lausuntoja ei tarvitse
+# sovittaa yhteen sääntöä keksimällä eikä tieto katoa.
+#   avain = sarakepääte, nimi = Sheetin taho-arvo ja karttasovelluksen teksti
+TAHOT = [
+    {"avain": "lvv",    "nimi": "LVV"},
+    {"avain": "museo",  "nimi": "Vastuumuseo"},
+    {"avain": "liitto", "nimi": "Maakuntaliitto"},
+]
+TAHO_SARAKE = "taho"
+
+# Sheetin lausuntokentät (pitkä muoto: yksi rivi per taho)
+SHEET_VIR_KENTAT = [LUOKITUS_VIR_SARAKE, KOMMENTTI_VIR_SARAKE, NIMI_VIR_SARAKE]
+
+
+def taho_sarake(kentta: str, avain: str) -> str:
+    """GeoPackagen tahokohtainen sarake: ("luokitus", "lvv") → "luokitus_lvv"."""
+    return f"{kentta}_{avain}"
+
+
 # Viranomaissarakkeet luodaan tyhjinä GeoJSON-vientiin jos ne puuttuvat.
 # Lähde-GeoPackageen niitä EI kirjoiteta pipeline-ajossa — se tehdään vasta
 # tilassa 3 (Päivitä luokitukset GeoPackageen), jossa käyttäjä valitsee
 # tallennetaanko päälle vai uudella nimellä.
 VIRANOMAIS_SARAKKEET = [
-    LUOKITUS_VIR_SARAKE,
-    KOMMENTTI_VIR_SARAKE,
-    NIMI_VIR_SARAKE,
-    VIRASTO_VIR_SARAKE,
+    taho_sarake(kentta, taho["avain"])
+    for taho in TAHOT
+    for kentta in ("luokitus", "kommentti", "nimi")
 ]
 
 KUVA_SARAKKEET = ["kuva1", "kuva2", "kuva3"]
@@ -99,7 +119,7 @@ DRIVE_KANSIO_ID = "1Q03U_D9tsMes94fDYWydJdTV7PD9W8W4"
 # Sheetin välilehti nimetään eksplisiittisesti: oletusnimi vaihtelee kielen
 # mukaan (Sheet1 / Taulukko1), ja tilan 3 CSV-haku tarvitsee tarkan nimen.
 SHEET_VALILEHTI = "Lausunnot"
-SHEET_OTSIKOT   = [TUNNUS_SARAKE] + VIRANOMAIS_SARAKKEET
+SHEET_OTSIKOT   = [TUNNUS_SARAKE, TAHO_SARAKE] + SHEET_VIR_KENTAT
 
 # Service account omistaa luomansa Sheetin. Ilman kirjoitusoikeutta näihin
 # osoitteisiin Sheettiä ei pääse avaamaan Drivessä eikä Apps Scriptiä
@@ -1386,14 +1406,34 @@ def hae_viranomaisdata() -> dict:
     # gviz palauttaa otsikoiden jälkeen tyhjiä sarakkeita — poimitaan nimellä
     df = df[SHEET_OTSIKOT].fillna("")
 
-    tulos = {}
+    # Sheetissä on yksi rivi per (tunnus, taho); GeoPackageen viedään
+    # tahokohtaisiin sarakkeisiin, joten rivit kootaan tunnuksen alle.
+    nimi_avaimeksi = {taho["nimi"]: taho["avain"] for taho in TAHOT}
+
+    tulos: dict = {}
+    lausuntoja = 0
+    tuntemattomat: dict = {}
     for _, rivi in df.iterrows():
         tunnus = _normalisoi_tunnus(rivi[TUNNUS_SARAKE])
         if not tunnus:
             continue
-        tulos[tunnus] = {s: str(rivi[s]).strip() for s in VIRANOMAIS_SARAKKEET}
+        taho_nimi = str(rivi[TAHO_SARAKE]).strip()
+        avain = nimi_avaimeksi.get(taho_nimi)
+        if not avain:
+            # Tuntematon taho ohitetaan: tieto ei kuulu millekään sarakkeelle
+            # eikä sitä saa hiljaa kirjoittaa väärän tahon päälle
+            tuntemattomat[taho_nimi] = tuntemattomat.get(taho_nimi, 0) + 1
+            continue
+        kohde = tulos.setdefault(tunnus, {})
+        for kentta, sheet_sarake in zip(("luokitus", "kommentti", "nimi"),
+                                        SHEET_VIR_KENTAT):
+            kohde[taho_sarake(kentta, avain)] = str(rivi[sheet_sarake]).strip()
+        lausuntoja += 1
 
-    print(f"  Sheetsistä: {len(tulos)} viranomaislausuntoa")
+    for nimi, maara in tuntemattomat.items():
+        print(f"  ⚠ Ohitettu {maara} riviä tuntemattomalla taholla: {nimi!r}")
+        print(f"    Sallitut: {', '.join(t['nimi'] for t in TAHOT)}")
+    print(f"  Sheetsistä: {lausuntoja} lausuntoa {len(tulos)} kohteelle")
     return tulos
 
 

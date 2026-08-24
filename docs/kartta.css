@@ -26,6 +26,19 @@ body { font-family: sans-serif; }
   color: white;
   border-color: #3388ff;
 }
+/* Tahopainikkeet ryhmänä otsakkeen alle */
+.nakyma-control .nakyma-otsake {
+  display: block;
+  margin: 7px 0 2px;
+  padding-top: 6px;
+  border-top: 1px solid #eee;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: #666;
+}
+.nakyma-control button.nakyma-taho { padding-left: 16px; }
+
 .nakyma-control button.toiminto {
   margin-top: 7px;
   border-top: 1px solid #eee;
@@ -115,6 +128,25 @@ body { font-family: sans-serif; }
   font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: #444;
 }
 .pu-vir-tyhja { font-size: 11px; color: #999; font-style: italic; }
+
+/* ── Tahojen lausuntotaulu ────────────────────────────── */
+.pu-taho td:first-child { white-space: nowrap; }
+.pu-taho-merkki {
+  display: inline-block;
+  width: 9px; height: 9px;
+  margin-right: 5px;
+  border-radius: 50%;
+  vertical-align: baseline;
+}
+/* Aktiivisen näkymän taho korostetaan, jotta näkee mitä pisteiden väri
+   kartalla kuvaa ja mitä lausuntoa alla oleva lomake muokkaa */
+.pu-taho-aktiivinen td { background: #eef2f7; font-weight: 600; }
+.pu-taho-lisa {
+  font-weight: normal;
+  color: #555;
+  font-size: 11px;
+  margin-top: 2px;
+}
 
 /* ── Luokituspainikkeet ───────────────────────────────── */
 .pu-napit { display: flex; flex-direction: column; gap: 3px; }

@@ -2,7 +2,11 @@
  * viranomainen_apps_script.gs
  * ===========================
  * Viranomaislausuntojen tallennus karttasovelluksesta Google Sheetiin.
- * Yksi rivi per rakennustunnus: sama tunnus päivittää olemassa olevaa riviä.
+ *
+ * Yksi rivi per (rakennustunnus, taho): kolme lausunnonantajaa voivat
+ * kirjata saman kohteen toisistaan riippumatta, eikä kukaan ylikirjoita
+ * toisen lausuntoa. Sama tunnus JA sama taho päivittää olemassa olevaa
+ * riviä.
  *
  * DEPLOYAUSOHJE:
  * 1. Avaa Sheet Drivesta
@@ -25,9 +29,9 @@
  *   Apps Script ei osaa vastata OPTIONS-preflightiin.
  *
  * Rajapinta:
- *   GET   (ilman parametreja)  → {status:"ok", rivit:[{tunnus, luokitus_vir, ...}]}
+ *   GET   (ilman parametreja)  → {status:"ok", rivit:[{tunnus, taho, luokitus_vir, ...}]}
  *   GET   ?tunnus=63           → {status:"ok", rivit:[...]}  (vain tämä tunnus)
- *   POST  body JSON text/plain {tunnus, luokitus_vir, kommentti_vir, nimi_vir, virasto_vir}
+ *   POST  body JSON text/plain {tunnus, taho, luokitus_vir, kommentti_vir, nimi_vir}
  *                              → {status:"ok", toiminto:"paivitetty"|"lisatty"}
  *   Virhe → {status:"error", message:"..."}
  */
@@ -41,7 +45,11 @@ const SPREADSHEET_ID = "";
 const SHEET_NAME = "Lausunnot";
 
 // Otsikkorivin sarakkeet — sama järjestys kuin pipeline.py:n SHEET_OTSIKOT.
-const SARAKKEET = ["tunnus", "luokitus_vir", "kommentti_vir", "nimi_vir", "virasto_vir"];
+const SARAKKEET = ["tunnus", "taho", "luokitus_vir", "kommentti_vir", "nimi_vir"];
+
+// Sallitut tahot. Sama lista kuin kartta.js:n TAHOT — tuntematon taho
+// hylätään, jottei kirjoitusvirhe synnytä näkymätöntä neljättä lausuntoa.
+const TAHOT = ["LVV", "Vastuumuseo", "Maakuntaliitto"];
 
 // ── Apufunktiot ────────────────────────────────────────────────────────────
 
@@ -152,6 +160,15 @@ function doPost(e) {
       return virhe("Kentta 'tunnus' puuttuu.");
     }
 
+    const taho = data.taho === null || data.taho === undefined
+      ? "" : String(data.taho).trim();
+    if (!taho) {
+      return virhe("Kentta 'taho' puuttuu.");
+    }
+    if (TAHOT.indexOf(taho) === -1) {
+      return virhe("Tuntematon taho: " + taho + ". Sallitut: " + TAHOT.join(", "));
+    }
+
     // Estää päällekkäisten tallennusten sekoittumisen
     if (!lukko.tryLock(20000)) {
       return virhe("Taulukko on varattu — yritä hetken kuluttua uudelleen.");
@@ -161,14 +178,15 @@ function doPost(e) {
     const idx   = sarakeIndeksit(sheet);
     const leveys = sheet.getLastColumn();
 
-    // Etsitään rivi jossa tunnus täsmää
+    // Etsitään rivi jossa sekä tunnus että taho täsmää
     let kohderivi = 0;
     if (sheet.getLastRow() >= 2) {
-      const tunnukset = sheet
-        .getRange(2, idx.tunnus + 1, sheet.getLastRow() - 1, 1)
+      const rivit = sheet
+        .getRange(2, 1, sheet.getLastRow() - 1, leveys)
         .getValues();
-      for (let i = 0; i < tunnukset.length; i++) {
-        if (String(tunnukset[i][0]).trim() === tunnus) {
+      for (let i = 0; i < rivit.length; i++) {
+        if (String(rivit[i][idx.tunnus]).trim() === tunnus &&
+            String(rivit[i][idx.taho]).trim() === taho) {
           kohderivi = i + 2;   // +2: otsikkorivi ja 1-pohjainen indeksointi
           break;
         }
@@ -181,7 +199,8 @@ function doPost(e) {
       : new Array(leveys).fill("");
 
     rivi[idx.tunnus] = tunnus;
-    ["luokitus_vir", "kommentti_vir", "nimi_vir", "virasto_vir"].forEach(function (nimi) {
+    rivi[idx.taho]   = taho;
+    ["luokitus_vir", "kommentti_vir", "nimi_vir"].forEach(function (nimi) {
       if (nimi in data) {
         const arvo = data[nimi];
         rivi[idx[nimi]] = arvo === null || arvo === undefined ? "" : String(arvo);
@@ -196,6 +215,7 @@ function doPost(e) {
       status:   "ok",
       toiminto: paivitetty ? "paivitetty" : "lisatty",
       tunnus:   tunnus,
+      taho:     taho,
     });
   } catch (err) {
     return virhe(err);

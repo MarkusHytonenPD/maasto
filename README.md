@@ -141,7 +141,9 @@ Laajennukset-valikko on harmaana.
 Sheetin nimi. Editorissa on tiedosto `Code.gs` ja siinä tyhjä `myFunction()`.
 
 **3. Korvaa koodi.** Klikkaa editoriin, **Ctrl+A** ja **Delete**, liitä sitten
-`viranomainen_apps_script.gs`:n koko sisältö. Älä muuta `SPREADSHEET_ID`-vakiota
+`viranomainen_apps_script.gs`:n koko sisältö. Skripti kirjoittaa yhden rivin per
+**(tunnus, taho)**, ja hyväksyy vain tahot `LVV`, `Vastuumuseo` ja
+`Maakuntaliitto` — sama lista kuin `kartta.js`:n ja `pipeline.py`:n `TAHOT`. Älä muuta `SPREADSHEET_ID`-vakiota
 — se jätetään tyhjäksi, koska skripti on sidottu tähän Sheetiin ja löytää sen
 itse.
 

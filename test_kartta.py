@@ -13,7 +13,8 @@ Kattaa:
   • "Lataa kaavoittajan suositukset" -tiedoston sisältö
   • viranomaisen lomake: esitäyttö, POST-runko, onnistuminen ja virheet
   • Sheetsin tuore data voittaa GeoJSONin arvot
-  • nimen ja viraston muistaminen
+  • kolme tahoa: erilliset lausunnot, oma näkymä ja oma tallennus
+  • oman nimen muistaminen (toisen tahon nimeä ei esitäytetä)
   • XSS: attribuuttidatan HTML ei suoriudu
   • datan lähde: Pages-kopio ensin, raw.githubusercontent.com varalla
 
@@ -49,6 +50,10 @@ LAATTA = base64.b64decode(
 
 NAYTA = ["tunnus", "potentiaali", "vuosi", "huom", "suojeluhalu"]
 
+# Kolme lausunnonantajaa: sama lista kuin kartta.js:n ja pipelinen TAHOT
+TAHOT     = [("lvv", "LVV"), ("museo", "Vastuumuseo"), ("liitto", "Maakuntaliitto")]
+VIR_KENTAT = ("luokitus", "kommentti", "nimi")
+
 # Kommenttiin tarkoituksella HTML:ää ja lainausmerkkejä
 XSS = 'Arvokas pihapiiri, "erittäin" hyvä <script>window.HAKKEROITU = 1</script>'
 
@@ -71,18 +76,21 @@ def luo_fikstuuri(kansio: Path):
         vanhat = piirre["properties"]
         uudet = {k: vanhat.get(k, "") for k in NAYTA}
         uudet["potentiaali"] = vanhat.get("potentiaali") or ""
-        for sarake in ("luokitus_vir", "kommentti_vir", "nimi_vir", "virasto_vir"):
-            uudet[sarake] = ""
+        for avain, _ in TAHOT:
+            for kentta in VIR_KENTAT:
+                uudet[f"{kentta}_{avain}"] = ""
         for sarake in ("kuva1", "kuva2", "kuva3"):
             uudet[sarake] = vanhat.get(sarake) or ""
-        if i == 0:                       # kohde jolla on viranomaislausunto
-            uudet["luokitus_vir"]  = "suojelukohde"
-            uudet["kommentti_vir"] = XSS
-            uudet["nimi_vir"]      = "Testi Viranomainen"
-            uudet["virasto_vir"]   = "Museovirasto"
+        if i == 0:                       # kohde jolla on LVV:n lausunto
+            uudet["luokitus_lvv"]  = "suojelukohde"
+            uudet["kommentti_lvv"] = XSS
+            uudet["nimi_lvv"]      = "Testi Viranomainen"
+            # ...ja vastuumuseon eri kanta samaan kohteeseen
+            uudet["luokitus_museo"] = "paikallinen"
+            uudet["nimi_museo"]     = "Museon Tarkastaja"
         if i == 1:
-            uudet["luokitus_vir"] = "paikallinen"
-            uudet["nimi_vir"]     = "Toinen Tarkastaja"
+            uudet["luokitus_lvv"] = "paikallinen"
+            uudet["nimi_lvv"]     = "Toinen Tarkastaja"
         piirre["properties"] = uudet
 
     (kohde / "data" / "kohteet.geojson").write_text(
@@ -248,9 +256,12 @@ def main():
                      if f["properties"].get("huom")), None)
 
     # Sheetsissä T0:lla on TUOREEMPI, eri lausunto kuin GeoJSONissa
-    SHEETS_RIVIT = [{"tunnus": T0, "luokitus_vir": "paikallinen",
+    SHEETS_RIVIT = [{"tunnus": T0, "taho": "LVV", "luokitus_vir": "paikallinen",
                      "kommentti_vir": "Sheetsistä haettu tuore kommentti",
-                     "nimi_vir": "Sheets Tarkastaja", "virasto_vir": "ELY-keskus"}]
+                     "nimi_vir": "Sheets Tarkastaja"},
+                    # Toisen tahon lausunto samaan kohteeseen — ei saa sekoittua
+                    {"tunnus": T0, "taho": "Maakuntaliitto", "luokitus_vir": "suojelukohde",
+                     "kommentti_vir": "Liiton kanta", "nimi_vir": "Liiton Tarkastaja"}]
 
     virheet, postit = [], []
 
@@ -344,9 +355,10 @@ def main():
            v.get("#555555", 0) + v.get("#1f78b4", 0) + v.get("#e31a1c", 0) == len(piirteet)
            and v.get("#1f78b4") == 14 and v.get("#e31a1c") == 8, v)
 
-        ok("näkymävalitsimen tekstit",
-           sivu.text_content("#nakyma-kaavoittaja") == "Kaavoittajan suositus"
-           and sivu.text_content("#nakyma-viranomainen") == "Viranomaisen luokitus")
+        ok("näkymävalitsimessa kaavoittaja ja kolme tahoa",
+           sivu.eval_on_selector_all(".nakyma-control button[data-nakyma]",
+                                     "e => e.map(x => x.textContent)")
+           == ["Kaavoittajan suositus", "LVV", "Vastuumuseo", "Maakuntaliitto"])
         ok("latausnappi näkyy",
            "Lataa kaavoittajan suositukset" in sivu.text_content("#lataa-suositukset"))
 
@@ -397,8 +409,13 @@ def main():
            == ["Suositus säilyttämisestä"])
 
         vir = sivu.text_content(".pu-vir")
-        ok("viranomaisen lausunto näkyy (vain luku)",
-           "Museovirasto" in vir and "Suojelukohde" in vir)
+        ok("kaikkien kolmen tahon lausunnot näkyvät lukuosiossa",
+           all(nimi in vir for _, nimi in TAHOT), vir[:90])
+        ok("eri tahojen eri kannat näkyvät erikseen",
+           "Suojelukohde" in vir and "Suositus säilyttämisestä" in vir
+           and "Testi Viranomainen" in vir and "Museon Tarkastaja" in vir)
+        ok("taho jolta ei ole lausuntoa merkitään tyhjäksi",
+           "Ei lausuntoa" in vir)
         ok("XSS ei suoriutunut",
            sivu.evaluate("window.HAKKEROITU === undefined")
            and "<script>" in sivu.inner_text(".pu-vir"))
@@ -409,7 +426,7 @@ def main():
                "huom" in sivu.eval_on_selector_all(".pu > .pu-attr td:first-child",
                                                    "e => e.map(x => x.textContent)"))
             ok("ilman lausuntoa näkyy huomautus",
-               sivu.text_content(".pu-vir-tyhja") == "Ei viranomaislausuntoa")
+               sivu.eval_on_selector_all(".pu-vir-tyhja", "e => e.length") == len(TAHOT))
 
         # Luokituksen muutos
         avaa(sivu, T0)
@@ -428,7 +445,7 @@ def main():
            == {T0: "suojelukohde"})
 
         # Näkymän vaihto
-        sivu.click("#nakyma-viranomainen")
+        sivu.click('.nakyma-control button[data-nakyma="lvv"]')
         sivu.wait_for_timeout(600)
         v = varit(sivu)
         ok("viranomaisnäkymä värittyy luokitus_vir:n mukaan",
@@ -438,7 +455,7 @@ def main():
            sivu.eval_on_selector_all(".pu-kaava .pu-napit button", "e => e.length") == 0
            and sivu.text_content(".pu-lukuarvo") == "Suojelukohde")
 
-        sivu.click("#nakyma-kaavoittaja")
+        sivu.click('.nakyma-control button[data-nakyma="kaavoittaja"]')
         sivu.wait_for_timeout(500)
         ok("muutos säilyi näkymän vaihdon yli",
            sivu.evaluate(f"markkerit[{json.dumps(T0)}].options.color") == "#e31a1c")
@@ -473,9 +490,11 @@ def main():
     print("\n2. Viranomaisen lomake ja onnistuva tallennus")
 
     def testit2(sivu):
-        ok("Sheetsin rivit haettiin",
-           sivu.evaluate("Object.keys(sheetsLausunnot).length") == 1)
-        sivu.click("#nakyma-viranomainen")
+        ok("Sheetsin rivit haettiin tahokohtaisilla avaimilla",
+           sorted(sivu.evaluate("Object.keys(sheetsLausunnot)"))
+           == sorted([f"{T0}|lvv", f"{T0}|liitto"]),
+           sivu.evaluate("Object.keys(sheetsLausunnot)"))
+        sivu.click('.nakyma-control button[data-nakyma="lvv"]')
         sivu.wait_for_timeout(600)
         ok("väri Sheetsin arvosta, ei GeoJSONista",
            sivu.evaluate(f"markkerit[{json.dumps(T0)}].options.color") == "#1f78b4",
@@ -483,9 +502,16 @@ def main():
 
         avaa(sivu, T0)
         sivu.wait_for_selector(".pu-vir-lomake", timeout=5000)
-        ok("lomake esitäytetty Sheetsin arvoilla",
+        ok("vain aktiivisen tahon lomake on muokattavana",
+           sivu.eval_on_selector_all(".pu-vir-lomake", "e => e.length") == 1
+           and "LVV" in sivu.text_content(".pu-vir-lomake h4"),
+           sivu.text_content(".pu-vir-lomake h4"))
+        ok("lomake esitäytetty oman tahon kommentilla",
            sivu.input_value(".pu-vir-lomake textarea")
            == "Sheetsistä haettu tuore kommentti")
+        ok("toisen tahon lausunto näkyy mutta ei omassa lomakkeessa",
+           "Liiton kanta" in sivu.text_content(".pu-vir")
+           and "Liiton kanta" not in sivu.input_value(".pu-vir-lomake textarea"))
         ok("aktiivinen luokitus Sheetsistä",
            sivu.eval_on_selector_all(".pu-vir-lomake .pu-napit button.aktiivinen",
                                      "e => e.map(x => x.textContent)")
@@ -493,7 +519,6 @@ def main():
 
         sivu.fill(".pu-vir-lomake textarea", "Uusi kommentti selaimesta")
         sivu.fill(".pu-vir-lomake .pu-kentta:nth-of-type(2) input", "Markus Testaaja")
-        sivu.fill(".pu-vir-lomake .pu-kentta:nth-of-type(3) input", "Maakuntamuseo")
         sivu.click(".pu-vir-lomake .pu-napit button:nth-child(3)")   # Suojelukohde
         sivu.click(".pu-lomake-footer button")
         sivu.wait_for_selector(".pu-lomake-viesti.onnistui", timeout=5000)
@@ -504,37 +529,34 @@ def main():
         ok("Content-Type text/plain (ei OPTIONS-preflightiä)",
            postit[-1]["headers"].get("content-type", "").startswith("text/plain"),
            postit[-1]["headers"].get("content-type"))
-        ok("POST-runko oikea", postit[-1]["body"] == {
-            "tunnus": T0, "luokitus_vir": "suojelukohde",
+        ok("POST-runko sisältää tahon eikä virastoa", postit[-1]["body"] == {
+            "tunnus": T0, "taho": "LVV", "luokitus_vir": "suojelukohde",
             "kommentti_vir": "Uusi kommentti selaimesta",
-            "nimi_vir": "Markus Testaaja", "virasto_vir": "Maakuntamuseo"},
+            "nimi_vir": "Markus Testaaja"},
            postit[-1]["body"])
         ok("väri päivittyi tallennuksesta",
            sivu.evaluate(f"markkerit[{json.dumps(T0)}].options.color") == "#e31a1c")
-        ok("nimi ja virasto muistiin",
+        ok("oma nimi muistiin",
            json.loads(sivu.evaluate("localStorage.getItem('viranomainen_tiedot')"))
-           == {"nimi": "Markus Testaaja", "virasto": "Maakuntamuseo"})
+           == {"nimi": "Markus Testaaja"})
 
         avaa(sivu, T_TYHJA)
         sivu.wait_for_selector(".pu-vir-lomake", timeout=5000)
-        ok("nimi ja virasto esitäytetty muistista",
+        ok("oma nimi esitäytetty muistista",
            sivu.input_value(".pu-vir-lomake .pu-kentta:nth-of-type(2) input")
-           == "Markus Testaaja"
-           and sivu.input_value(".pu-vir-lomake .pu-kentta:nth-of-type(3) input")
-           == "Maakuntamuseo")
+           == "Markus Testaaja")
         ok("kommentti tyhjä uudelle kohteelle",
            sivu.input_value(".pu-vir-lomake textarea") == "")
 
         sivu.evaluate("map.closePopup()")
-        sivu.click("#nakyma-kaavoittaja")
+        sivu.click('.nakyma-control button[data-nakyma="kaavoittaja"]')
         sivu.wait_for_timeout(500)
         avaa(sivu, T0)
         ok("kaavoittajan näkymässä ei Tallenna-nappia",
            sivu.eval_on_selector_all(".pu-vir-lomake", "e => e.length") == 0
            and sivu.eval_on_selector_all(".pu-lomake-footer", "e => e.length") == 0)
         ok("kaavoittajan näkymä näyttää juuri tallennetun lausunnon",
-           "Markus Testaaja" in sivu.text_content(".pu-vir")
-           and "Maakuntamuseo" in sivu.text_content(".pu-vir"))
+           "Markus Testaaja" in sivu.text_content(".pu-vir"))
 
     aja(ENDPOINT, {"status": 200, "content_type": "application/json",
                    "body": json.dumps({"status": "ok", "toiminto": "paivitetty",
@@ -544,7 +566,7 @@ def main():
     print("\n3. Endpoint palauttaa virheen")
 
     def testit3(sivu):
-        sivu.click("#nakyma-viranomainen")
+        sivu.click('.nakyma-control button[data-nakyma="lvv"]')
         sivu.wait_for_timeout(600)
         avaa(sivu, T0)
         sivu.wait_for_selector(".pu-vir-lomake", timeout=5000)
@@ -563,7 +585,7 @@ def main():
     print("\n4. HTTP-virhe")
 
     def testit4(sivu):
-        sivu.click("#nakyma-viranomainen")
+        sivu.click('.nakyma-control button[data-nakyma="lvv"]')
         sivu.wait_for_timeout(600)
         avaa(sivu, T0)
         sivu.wait_for_selector(".pu-vir-lomake", timeout=5000)
@@ -579,7 +601,7 @@ def main():
     def testit5(sivu):
         ok("Sheets-hakua ei yritetty",
            sivu.evaluate("Object.keys(sheetsLausunnot).length") == 0)
-        sivu.click("#nakyma-viranomainen")
+        sivu.click('.nakyma-control button[data-nakyma="lvv"]')
         sivu.wait_for_timeout(600)
         avaa(sivu, T0)
         sivu.wait_for_selector(".pu-vir-lomake", timeout=5000)
@@ -587,7 +609,7 @@ def main():
            sivu.eval_on_selector(".pu-lomake-footer button", "e => e.disabled") is True)
         ok("syy kerrotaan käyttäjälle",
            "apps_script_url" in sivu.text_content(".pu-lomake-viesti"))
-        ok("lomake näyttää GeoJSONin arvot kun Sheets ei käytössä",
+        ok("lomake näyttää GeoJSONin tahokohtaiset arvot kun Sheets ei käytössä",
            sivu.input_value(".pu-vir-lomake textarea").startswith("Arvokas pihapiiri"))
 
     aja("", {"status": 200, "body": "{}"}, testit5)

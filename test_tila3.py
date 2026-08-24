@@ -142,13 +142,16 @@ def main():
     print("\n3. paivita_geopackage — tyylit, muut tasot, RTree-triggerit")
 
     viranomais = {
-        tunnukset[0]: {"luokitus_vir": "suojelukohde",
-                       "kommentti_vir": 'Kommentti "lainausmerkeillä" ja skandit äöå',
-                       "nimi_vir": "Testi Viranomainen", "virasto_vir": "Museovirasto"},
-        tunnukset[7]: {"luokitus_vir": "paikallinen", "kommentti_vir": "",
-                       "nimi_vir": "Toinen Tarkastaja", "virasto_vir": "ELY-keskus"},
-        "EI_OLE_8888": {"luokitus_vir": "suojelukohde", "kommentti_vir": "",
-                        "nimi_vir": "", "virasto_vir": ""},
+        # Sama kohde, kaksi eri tahoa: kummankin lausunto omiin sarakkeisiinsa
+        tunnukset[0]: {"luokitus_lvv": "suojelukohde",
+                       "kommentti_lvv": 'Kommentti "lainausmerkeillä" ja skandit äöå',
+                       "nimi_lvv": "Testi Viranomainen",
+                       "luokitus_museo": "paikallinen",
+                       "kommentti_museo": "Museon eri kanta",
+                       "nimi_museo": "Museon Tarkastaja"},
+        tunnukset[7]: {"luokitus_liitto": "paikallinen", "kommentti_liitto": "",
+                       "nimi_liitto": "Liiton Tarkastaja"},
+        "EI_OLE_8888": {"luokitus_lvv": "suojelukohde"},
     }
 
     gpkg = _luo_gpkg(gdf, "paivitys.gpkg")
@@ -183,17 +186,21 @@ def main():
     ok("kaavoittajan arvo tallentui", rivi["potentiaali"] == muutokset[tunnukset[0]],
        rivi["potentiaali"])
     ok("viranomaisarvot tallentuivat",
-       rivi["luokitus_vir"] == "suojelukohde"
-       and rivi["nimi_vir"] == "Testi Viranomainen"
-       and rivi["virasto_vir"] == "Museovirasto")
+       rivi["luokitus_lvv"] == "suojelukohde"
+       and rivi["nimi_lvv"] == "Testi Viranomainen")
+    ok("saman kohteen toisen tahon lausunto omissa sarakkeissaan",
+       rivi["luokitus_museo"] == "paikallinen"
+       and rivi["nimi_museo"] == "Museon Tarkastaja"
+       and rivi["luokitus_liitto"] in ("", None),
+       f'museo={rivi["luokitus_museo"]!r} liitto={rivi["luokitus_liitto"]!r}')
     ok("lainausmerkit ja skandit säilyivät",
-       rivi["kommentti_vir"] == 'Kommentti "lainausmerkeillä" ja skandit äöå',
-       rivi["kommentti_vir"])
+       rivi["kommentti_lvv"] == 'Kommentti "lainausmerkeillä" ja skandit äöå',
+       rivi["kommentti_lvv"])
     ok("geometria ja rivimäärä ennallaan",
        paivitetty.geometry.notna().all() and len(paivitetty) == len(tunnukset))
 
     lausunnoton = paivitetty[paivitetty["tunnus"].astype(str) == tunnukset[2]] \
-                  ["luokitus_vir"].iloc[0]
+                  ["luokitus_lvv"].iloc[0]
     ok("kohde ilman lausuntoa jäi tyhjäksi",
        lausunnoton is None or pd.isna(lausunnoton) or str(lausunnoton).strip() == "",
        repr(lausunnoton))
@@ -219,12 +226,12 @@ def main():
        kohde.name if kohde else None)
     ok("alkuperäinen ei muuttunut", alkuperainen.stat().st_size == koko_ennen)
     ok("alkuperäisessä ei viranomaissarakkeita",
-       "luokitus_vir" not in gpd.read_file(alkuperainen, layer="ku").columns)
+       "luokitus_lvv" not in gpd.read_file(alkuperainen, layer="ku").columns)
     kopio = gpd.read_file(kohde, layer="ku")
     ok("kopiossa on viranomaissarakkeet",
        all(s in kopio.columns for s in P.VIRANOMAIS_SARAKKEET))
     ok("kopiossa oikeat arvot",
-       kopio[kopio["tunnus"].astype(str) == tunnukset[0]]["nimi_vir"].iloc[0]
+       kopio[kopio["tunnus"].astype(str) == tunnukset[0]]["nimi_lvv"].iloc[0]
        == "Testi Viranomainen")
     yhteys = sqlite3.connect(str(kohde))
     ok("tyyli säilyi kopiossa",
@@ -241,7 +248,7 @@ def main():
     ok("kohde on alkuperäinen tiedosto", kohde == paalle, kohde)
     u = gpd.read_file(paalle, layer="ku")
     ok("arvot päivittyivät alkuperäiseen",
-       u[u["tunnus"].astype(str) == tunnukset[0]]["nimi_vir"].iloc[0] == "Testi Viranomainen")
+       u[u["tunnus"].astype(str) == tunnukset[0]]["nimi_lvv"].iloc[0] == "Testi Viranomainen")
     yhteys = sqlite3.connect(str(paalle))
     ok("tyyli säilyi päällekirjoituksessa",
        "TÄRKEÄ TYYLI" in yhteys.execute("SELECT styleQML FROM layer_styles").fetchone()[0])
@@ -254,7 +261,7 @@ def main():
     P.tila3_paivita_luokitukset(vain_vir, "ku")
     u = gpd.read_file(vain_vir, layer="ku")
     ok("viranomaisdata päivittyi",
-       u[u["tunnus"].astype(str) == tunnukset[0]]["nimi_vir"].iloc[0] == "Testi Viranomainen")
+       u[u["tunnus"].astype(str) == tunnukset[0]]["nimi_lvv"].iloc[0] == "Testi Viranomainen")
     ok("kaavoittajan arvot ennallaan",
        u[u["tunnus"].astype(str) == tunnukset[0]]["potentiaali"].iloc[0]
        == lahde["features"][0]["properties"]["potentiaali"],
@@ -267,7 +274,7 @@ def main():
     _syotteet("")
     ok("palauttaa None", P.tila3_paivita_luokitukset(tyhja, "ku") is None)
     ok("GeoPackageen ei koskettu",
-       "luokitus_vir" not in gpd.read_file(tyhja, layer="ku").columns)
+       "luokitus_lvv" not in gpd.read_file(tyhja, layer="ku").columns)
 
     builtins.input = oikea_input
     return 0 if all(tulokset) else 1
