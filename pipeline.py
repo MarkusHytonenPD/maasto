@@ -14,7 +14,7 @@ Tilat:
   1 = Pipeline (automaattinen kuvakansiosta)
   2 = Sijoita käsin (yksittäiset kuvat)
   3 = Päivitä luokitukset GeoPackageen — yhdistää karttasovelluksesta ladatun
-      kaavoittajan luokitus-GeoJSONin ja viranomaisen lausunnot (Sheetsistä
+      kaavoittajan luokitus-GeoJSONin ja viranomaisten kommentit (Sheetsistä
       julkisena CSV:nä) alkuperäiseen GeoPackageen.
 
 Työskentely erissä:
@@ -76,9 +76,9 @@ KOMMENTTI_VIR_SARAKE = "kommentti_vir"  # viranomaisen kommentti
 NIMI_VIR_SARAKE      = "nimi_vir"       # viranomaisen nimi
 VIRASTO_VIR_SARAKE   = "virasto_vir"    # viranomaisen virasto
 
-# Viranomaistahot. Kolme lausunnonantajaa kirjaa saman kohteen toisistaan
+# Viranomaistahot. Kolme kommentoijatahoa kirjaa saman kohteen toisistaan
 # riippumatta, joten Sheetissä on yksi rivi per (tunnus, taho) ja
-# GeoPackagessa omat sarakkeet per taho. Näin eriäviä lausuntoja ei tarvitse
+# GeoPackagessa omat sarakkeet per taho. Näin eriäviä kommentteja ei tarvitse
 # sovittaa yhteen sääntöä keksimällä eikä tieto katoa.
 #   avain = sarakepääte, nimi = Sheetin taho-arvo ja karttasovelluksen teksti
 TAHOT = [
@@ -88,7 +88,7 @@ TAHOT = [
 ]
 TAHO_SARAKE = "taho"
 
-# Sheetin lausuntokentät (pitkä muoto: yksi rivi per taho)
+# Sheetin kommenttikentät (pitkä muoto: yksi rivi per taho)
 SHEET_VIR_KENTAT = [LUOKITUS_VIR_SARAKE, KOMMENTTI_VIR_SARAKE, NIMI_VIR_SARAKE]
 
 
@@ -1001,7 +1001,7 @@ def _aseta_julkinen_lukuoikeus(drive, tiedosto_id: str):
     Drive-kansiosta periytyy uusiin tiedostoihin sen oma jakoasetus. Jos
     kohdekansio on jaettu linkillä muokkausoikeudella, Google EI salli
     perityn oikeuden laskemista tiedostotasolla — silloin kuka tahansa linkin
-    tietävä voisi kirjoittaa lausuntoja suoraan Sheetiin ohi Apps Script
+    tietävä voisi kirjoittaa kommentteja suoraan Sheetiin ohi Apps Script
     -endpointin. Sitä ei voi korjata koodista, joten siitä varoitetaan.
     """
     for perm in drive.permissions().list(
@@ -1019,7 +1019,7 @@ def _aseta_julkinen_lukuoikeus(drive, tiedosto_id: str):
                 print(f"  ⚠ HUOM: linkin tietävillä on '{perm['role']}'-oikeus, ei lukuoikeutta.")
                 print(f"    Oikeus periytyy Drive-kansiosta {DRIVE_KANSIO_ID}, eikä sitä voi")
                 print("    laskea tiedostotasolla. Kuka tahansa linkin tietävä voi siis")
-                print("    muokata lausuntoja suoraan Sheetissä.")
+                print("    muokata kommentteja suoraan Sheetissä.")
                 print("    Korjaus: avaa kansio Drivessä → Jaa → vaihda linkkijako")
                 print("    'Rajoitettu'-tilaan. Pipeline antaa lukuoikeuden per Sheet.")
             return
@@ -1051,14 +1051,14 @@ def _tulosta_deployausohje(sheets_url: str):
 
 def luo_projekti_sheet(projekti: str) -> str | None:
     """
-    Luo projektikohtaisen Google Sheetin viranomaislausunnoille:
+    Luo projektikohtaisen Google Sheetin viranomaisten kommenteille:
     otsikkorivi, julkinen lukuoikeus (CSV-haku ilman autentikointia) ja
     kirjoitusoikeus SHEET_JAKO_EMAIL:lle. Tallentaa sheets_id:n config.json:iin.
 
     Palauttaa Sheetin ID:n, tai None jos luonti ei onnistunut — pipeline
     jatkaa silloin normaalisti, Sheet voidaan luoda seuraavalla ajolla.
     """
-    print("\n--- Viranomaislausuntojen Google Sheet ---")
+    print("\n--- Viranomaisten kommenttien Google Sheet ---")
 
     try:
         from googleapiclient.discovery import build
@@ -1072,7 +1072,7 @@ def luo_projekti_sheet(projekti: str) -> str | None:
         print("    Pipeline jatkaa — Sheet voidaan luoda seuraavalla ajolla.")
         return None
 
-    nimi = f"Viranomaislausunnot_{projekti}"
+    nimi = f"Viranomaiskommentit_{projekti}"
     try:
         drive  = build("drive",  "v3", credentials=creds, cache_discovery=False)
         sheets = build("sheets", "v4", credentials=creds, cache_discovery=False)
@@ -1413,7 +1413,7 @@ def _lue_sheet_csvna(sheets_id: str, valilehti: str):
 
 def hae_viranomaisdata() -> dict:
     """
-    Hakee viranomaislausunnot Sheetsistä julkisena CSV:nä — ei autentikointia,
+    Hakee viranomaisten kommentit Sheetsistä Sheets-API:lla omalla tokenilla,
     koska Sheet on jaettu lukuoikeudella. Palauttaa {tunnus: {sarake: arvo}}.
     """
     cfg       = _lue_projekticonfig()
@@ -1427,7 +1427,7 @@ def hae_viranomaisdata() -> dict:
     # Luku Sheets-API:lla omalla tokenilla. Aiemmin tähän käytettiin julkista
     # gviz-CSV:tä, mutta se vaatii että Sheet on jaettu linkin tietäville —
     # ja Drive-kansio on tarkoituksella Rajoitettu-tilassa, jottei kukaan
-    # pääse kirjoittamaan lausuntoja endpointin ohi. API-luku toimii
+    # pääse kirjoittamaan kommentteja endpointin ohi. API-luku toimii
     # jakoasetuksista riippumatta, koska token omistaa tiedoston.
     df = _lue_sheet_apilla(sheets_id, valilehti)
     if df is None:
@@ -1452,7 +1452,7 @@ def hae_viranomaisdata() -> dict:
     nimi_avaimeksi = {taho["nimi"]: taho["avain"] for taho in TAHOT}
 
     tulos: dict = {}
-    lausuntoja = 0
+    kommentteja = 0
     tuntemattomat: dict = {}
     for _, rivi in df.iterrows():
         tunnus = _normalisoi_tunnus(rivi[TUNNUS_SARAKE])
@@ -1469,12 +1469,12 @@ def hae_viranomaisdata() -> dict:
         for kentta, sheet_sarake in zip(("luokitus", "kommentti", "nimi"),
                                         SHEET_VIR_KENTAT):
             kohde[taho_sarake(kentta, avain)] = str(rivi[sheet_sarake]).strip()
-        lausuntoja += 1
+        kommentteja += 1
 
     for nimi, maara in tuntemattomat.items():
         print(f"  ⚠ Ohitettu {maara} riviä tuntemattomalla taholla: {nimi!r}")
         print(f"    Sallitut: {', '.join(t['nimi'] for t in TAHOT)}")
-    print(f"  Sheetsistä: {lausuntoja} lausuntoa {len(tulos)} kohteelle")
+    print(f"  Sheetsistä: {kommentteja} kommenttia {len(tulos)} kohteelle")
     return tulos
 
 
@@ -1565,7 +1565,7 @@ def paivita_geopackage(gpkg_polku: Path, layer_nimi: str,
 
 def tila3_paivita_luokitukset(gpkg_polku: Path, layer_nimi: str) -> Path | None:
     """
-    Tila 3: yhdistää kaavoittajan selainluokitukset ja viranomaisen lausunnot
+    Tila 3: yhdistää kaavoittajan selainluokitukset ja viranomaisten kommentit
     GeoPackageen. Palauttaa päivitetyn GeoPackagen polun, tai None.
     """
     print("\n--- Tila 3: Päivitä luokitukset GeoPackageen ---")
@@ -1627,7 +1627,7 @@ def tila3_paivita_luokitukset(gpkg_polku: Path, layer_nimi: str) -> Path | None:
 
     print(f"\n  Päivitetty: {kohde}")
     print(f"    Kaavoittajan luokituksia:   {tilastot['kaava_ok']}")
-    print(f"    Viranomaislausuntoja:       {tilastot['vir_ok']}")
+    print(f"    Viranomaiskommentteja:      {tilastot['vir_ok']}")
     if tilastot["puuttuvat"]:
         naytettavat = ", ".join(tilastot["puuttuvat"][:10])
         loput = len(tilastot["puuttuvat"]) - 10
@@ -1766,7 +1766,7 @@ def main():
 
     # Sheet luodaan vain kerran per projekti
     if _lue_projekticonfig().get("sheets_id"):
-        print("  Viranomaislausuntojen Sheet on jo luotu (sheets_id config.json:issa)")
+        print("  Viranomaiskommenttien Sheet on jo luotu (sheets_id config.json:issa)")
     else:
         luo_projekti_sheet(PROJEKTI)
 

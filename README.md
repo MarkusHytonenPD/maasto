@@ -84,7 +84,7 @@ poistaa. Käytännön suojaus on siis:
   mutta poistettu avain ei toimi, joten historian siivoaminen ei ole tarpeen.
 - Avoimet rajapinnat ovat maksuttomia; avain on MML:lle käytön seurantaa varten.
 
-### 4. Google — viranomaislausunnot
+### 4. Google — viranomaisten kommentit
 
 Viranomainen kirjaa luokituksensa ja kommenttinsa suoraan karttasivulla. Tiedot
 menevät projektikohtaiseen Google Sheetiin Apps Script -endpointin kautta, eikä
@@ -99,9 +99,9 @@ Luo Driveen kansio johon projektien Sheetit syntyvät, ja kopioi sen ID URL:sta
 > **Pidä kansion linkkijako *Rajoitettu*-tilassa.** Driven jakoasetus periytyy
 > kansioon luotaviin tiedostoihin, eikä perittyä oikeutta voi laskea
 > tiedostotasolla — Google vastaa `cannotModifyInheritedPermission`. Jos kansio
-> on jaettu linkillä muokkausoikeudella, jokainen viranomaislausuntojen Sheet on
+> on jaettu linkillä muokkausoikeudella, jokainen viranomaisten kommenttien Sheet on
 > julkisesti **muokattava**: kuka tahansa linkin saanut voisi kirjoittaa
-> lausuntoja ohi endpointin. Pipeline varoittaa tästä joka ajolla.
+> kommenttija ohi endpointin. Pipeline varoittaa tästä joka ajolla.
 
 #### 4.2 Kertaluonteinen kirjautuminen
 
@@ -121,7 +121,9 @@ Selain avautuu — valitse tili jonka haluat **omistavan** luodut Sheetit
 #### 4.3 Sheetin luonti
 
 Pipeline luo Sheetin automaattisesti projektin ensimmäisellä ajolla: nimi
-`Viranomaislausunnot_[projekti]`, välilehti `Lausunnot`, otsikkorivi
+`Viranomaiskommentit_[projekti]`, välilehti `Lausunnot` (vanha nimi, jätetty
+ennalleen koska sen vaihtaminen vaatisi Apps Scriptin uudelleendeployauksen ja
+`config.json`:in päivityksen), otsikkorivi
 `tunnus | taho | luokitus_vir | kommentti_vir | nimi_vir`. Sheet jaetaan
 lukuoikeudella linkin tietäville (CSV-hakua varten) ja kirjoitusoikeudella
 `SHEET_JAKO_EMAILIT`-vakion osoitteille. `sheets_id` tallentuu projektin
@@ -277,7 +279,7 @@ python3 pipeline.py
 |---|---|
 | `1` | Pipeline: geotägäys → kuvien nimeäminen → push → GeoJSON-vienti → push |
 | `2` | Sijoita käsin: yksittäisiä kuvia tunnukselle |
-| `3` | Päivitä luokitukset GeoPackageen: kaavoittajan GeoJSON + viranomaisen lausunnot Sheetsistä |
+| `3` | Päivitä luokitukset GeoPackageen: kaavoittajan GeoJSON + viranomaisten kommentit Sheetsistä |
 
 Päivittäinen käyttö ja tilojen yksityiskohdat: [KAYTTOOHJE.md](KAYTTOOHJE.md).
 
@@ -346,7 +348,7 @@ Havaitut aukot listataan ajon alussa.
 ### Useampi projekti
 
 Anna pipelinelle uusi projektinimi — se luo `projektit/[nimi]/`-rakenteen,
-`config.json`-pohjan, `docs/[nimi]/index.html`:n ja viranomaislausuntojen
+`config.json`-pohjan, `docs/[nimi]/index.html`:n ja viranomaisten kommenttien
 Sheetin sekä pushaa ne. Käsin jää vain WMS-tasojen lisäys `config.json`:iin ja
 Apps Script -deployaus (kohta 4.4).
 

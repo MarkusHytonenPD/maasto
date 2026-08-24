@@ -27,7 +27,7 @@ palautus GeoPackageen.
                             (luokittelee selaimessa, │
                              lataa GeoJSONin)        │
                                                      └── viranomainen ──▶ Sheet
-                                                         (kirjaa lausunnon)   │
+                                                         (kirjaa kommentin)   │
           ┌──────────────────────────────────────────────────────────────────┘
           ▼
   python3 pipeline.py  tila 3
@@ -40,10 +40,10 @@ Pipeline hoitaa julkaisun itse: se commitoi ja pushaa tulokset.
 
 **Karttaa katsotaan GitHubista.** Selainsovellus on GitHub Pagesissa eikä katsoja
 tarvitse mitään asennettua — pelkkä linkki riittää. Viranomainen ei tarvitse
-Google-tiliä: lausunto tallentuu Sheetiin Apps Script -endpointin kautta.
+Google-tiliä: kommentti tallentuu Sheetiin Apps Script -endpointin kautta.
 
 **Luokitukset palaavat GeoPackageen tilassa 3.** Kaavoittajan selainluokitukset
-kulkevat ladattuna GeoJSON-tiedostona, viranomaisen lausunnot haetaan Sheetsistä.
+kulkevat ladattuna GeoJSON-tiedostona, viranomaisten kommentit haetaan Sheetsistä.
 
 ---
 
@@ -59,7 +59,7 @@ kulkevat ladattuna GeoJSON-tiedostona, viranomaisen lausunnot haetaan Sheetsist�
   `pip install geopandas pillow pyproj gpxpy piexif pandas requests`
   `pip install google-api-python-client google-auth google-auth-oauthlib`
 - kertaluonteinen Google-kirjautuminen: `python3 auth_pipeline.py`
-  (tarvitaan vain viranomaislausuntojen Sheetin luontiin, ks. README kohta 4)
+  (tarvitaan vain viranomaisten kommenttien Sheetin luontiin, ks. README kohta 4)
 
 ### Ajo
 
@@ -170,7 +170,8 @@ Viranomaisdata haetaan Sheetsistä automaattisesti, jos `config.json`:ssa on
 **Päivitys tehdään paikan päällä SQLitellä**, ei tiedostoa uudelleen
 kirjoittamalla. Samaan GeoPackageen tallennetut **QGIS-tyylit ja muut tasot
 säilyvät** sekä päällekirjoituksessa että kopiossa. Puuttuvat sarakkeet
-(`luokitus_vir`, `kommentti_vir`, `nimi_vir`, `virasto_vir`) lisätään tyhjinä.
+(tahokohtaiset `luokitus_lvv`, `kommentti_lvv`, `nimi_lvv` ja vastaavat
+`_museo`- ja `_liitto`-sarakkeet) lisätään tyhjinä.
 
 Lopuksi tulostetaan montako riviä päivittyi kummastakin lähteestä ja mitkä
 tunnukset eivät löytyneet GeoPackagesta:
@@ -178,7 +179,7 @@ tunnukset eivät löytyneet GeoPackagesta:
 ```
   Päivitetty: /polku/ky_ita.gpkg
     Kaavoittajan luokituksia:   61
-    Viranomaislausuntoja:       4
+    Viranomaiskommentteja:       4
     ⚠ Tunnuksia ei löytynyt GeoPackagesta: 2  (EI_OLE_8888, EI_OLE_9999)
       Yleisin syy: väärä projekti tai vanhentunut GeoPackage.
 ```
@@ -226,7 +227,7 @@ päivitä kovalla latauksella (Ctrl+F5).
   kumpi osio popupissa on muokattavissa.
 - **Kohteen popup:** kuvat (klikkaus suurentaa lightboxiin), valitut attribuutit
   taulukkona (`naytettavat_sarakkeet`), kaavoittajan suositus ja viranomaisen
-  lausunto omina osioinaan.
+  kommentti omina osioinaan.
 
 #### Luokitusasteikko
 
@@ -258,19 +259,19 @@ Kun *Viranomaisen luokitus* on valittuna, popupin alaosa on lomake: luokitus,
 kommentti ja nimi sekä **Tallenna**. Tallennus lähtee Apps Script -endpointiin
 ja päätyy projektin Sheetiin.
 
-**Kolme lausunnonantajaa.** Näkymävalitsimessa on *Kaavoittajan suositus* ja sen
+**Kolme kommentoijaa.** Näkymävalitsimessa on *Kaavoittajan suositus* ja sen
 alla kolme tahoa: **LVV**, **Vastuumuseo** ja **Maakuntaliitto**. Valittu taho
-määrää sekä pisteiden värityksen että sen, kenen lausuntoa popupin lomake
+määrää sekä pisteiden värityksen että sen, kenen kommenttia popupin lomake
 muokkaa. Sheetissä on yksi rivi per **(tunnus, taho)**, joten tahot kirjaavat
-toisistaan riippumatta eikä kukaan ylikirjoita toisen lausuntoa. Popup näyttää
+toisistaan riippumatta eikä kukaan ylikirjoita toisen kommenttia. Popup näyttää
 aina kaikkien kolmen kannan, jotta muiden näkemykset ovat esillä kirjattaessa.
 
 - Oma nimi muistetaan seuraavalle kohteelle. Nimeä **ei** esitäytetä Sheetistä:
-  muuten kollegan nimi tulisi omaan kenttään ja lausunto tallentuisi väärälle.
+  muuten kollegan nimi tulisi omaan kenttään ja kommentti tallentuisi väärälle.
 - Kartta hakee Sheetin nykytilan käynnistyessään, joten toinen viranomainen
-  näkee jo kirjatut lausunnot eikä ylikirjoita niitä vahingossa.
-- Onnistumisesta tulee *Lausunto tallennettu ✓*, virheestä selkeä ilmoitus
-  jossa lukee että lausuntoa **ei** tallennettu. Yritä silloin uudelleen.
+  näkee jo kirjatut kommentit eikä ylikirjoita niitä vahingossa.
+- Onnistumisesta tulee *Kommentti tallennettu ✓*, virheestä selkeä ilmoitus
+  jossa lukee että kommenttia **ei** tallennettu. Yritä silloin uudelleen.
 
 Kaavoittajan näkymässä viranomaisen osio on vain luku.
 
@@ -282,7 +283,7 @@ Kaavoittajan näkymässä viranomaisen osio on vain luku.
 ### Uusi projekti
 
 Riittää että antaa pipelinelle uuden projektinimen — se luo `projektit/[nimi]/`-rakenteen,
-`config.json`-pohjan ja `docs/[nimi]/index.html`:n, **luo viranomaislausuntojen Sheetin**
+`config.json`-pohjan ja `docs/[nimi]/index.html`:n, **luo viranomaisten kommenttien Sheetin**
 ja pushaa ne. Sheet luodaan vain kerran per projekti (pipeline tunnistaa sen
 `sheets_id`-avaimesta).
 
@@ -329,12 +330,12 @@ Muista pushata `config.json` kun muokkaat sitä käsin — kartta lukee sen GitH
 | Popup näyttää väärät kentät | `naytettavat_sarakkeet` projektin `config.json`:issa. Aja pipeline ja valitse sarakkeet uudelleen, tai muokkaa käsin ja pushaa. |
 | Viranomaisen Tallenna-nappi harmaana | `apps_script_url` puuttuu `config.json`:sta tai sitä ei ole pushattu. |
 | *Tallennus epäonnistui: HTTP 401/403* | Apps Script -deployment ei ole tilassa *Käyttäjät: Kaikki*, tai URL on vanhan deploymentin. Tee uusi deployment ja päivitä URL. |
-| Viranomaisen lausunnot eivät näy kartalla | Kartta hakee ne `apps_script_url`:sta. Tarkista selaimen konsolista *Lausuntojen haku Sheetsistä epäonnistui*. Jos konsolissa lukee *tuntemattomalla taholla*, Apps Script on vanhaa versiota tai `taho`-sarake on tyhjä. |
+| Viranomaisten kommentit eivät näy kartalla | Kartta hakee ne `apps_script_url`:sta. Tarkista selaimen konsolista *Kommenttijen haku Sheetsistä epäonnistui*. Jos konsolissa lukee *tuntemattomalla taholla*, Apps Script on vanhaa versiota tai `taho`-sarake on tyhjä. |
 | Tila 3: *Sheets-API-luku epäonnistui* | Token puuttuu tai on vanhentunut — aja `python3 auth_pipeline.py`. Julkista CSV:tä ei voi käyttää, koska Drive-kansio on Rajoitettu-tilassa. |
 | Tila 3: *Sheetistä puuttuu sarakkeita* | Sheetin otsikkorivi on muuttunut. Palauta: `tunnus, taho, luokitus_vir, kommentti_vir, nimi_vir`. |
-| Tila 3: *Ohitettu N riviä tuntemattomalla taholla* | Sheetin `taho`-sarakkeessa on muu arvo kuin `LVV`, `Vastuumuseo` tai `Maakuntaliitto` — korjaa kirjoitusasu, muuten lausunto ei päädy GeoPackageen. |
+| Tila 3: *Ohitettu N riviä tuntemattomalla taholla* | Sheetin `taho`-sarakkeessa on muu arvo kuin `LVV`, `Vastuumuseo` tai `Maakuntaliitto` — korjaa kirjoitusasu, muuten kommentti ei päädy GeoPackageen. |
 | Tila 3: *Tunnuksia ei löytynyt GeoPackagesta* | GeoJSON tai Sheet on eri projektista, tai GeoPackage on vanhentunut. |
-| Pipeline varoittaa julkisesta muokkausoikeudesta | Drive-kansion linkkijako on *muokkaaja*. Vaihda kansion jaoksi **Rajoitettu** — muuten kuka tahansa Sheetin linkin saanut voi muokata lausuntoja. |
+| Pipeline varoittaa julkisesta muokkausoikeudesta | Drive-kansion linkkijako on *muokkaaja*. Vaihda kansion jaoksi **Rajoitettu** — muuten kuka tahansa Sheetin linkin saanut voi muokata kommenttija. |
 | *Google-kirjautumista ei ole tehty* | Aja `python3 auth_pipeline.py`. |
 
 ## Huomioitavaa
@@ -348,7 +349,7 @@ Muista pushata `config.json` kun muokkaat sitä käsin — kartta lukee sen GitH
 - Rakennusta kohti mahtuu **3 kuvaa** — kartan popup lukee kentät `kuva1`–`kuva3`.
 - GeoPackagea ei tallenneta repoon, joten pidä siitä huolta itse; pipeline lukee sen
   joka ajolla uudelleen ja rakentaa geojsonin sen pohjalta.
-- **Viranomaislausuntojen Sheet on julkisesti luettava.** Se on tarkoituksellista:
+- **Viranomaisten kommenttien Sheet on julkisesti luettava.** Se on tarkoituksellista:
   pipeline hakee datan ilman kirjautumista, eikä viranomainen tarvitse Google-tiliä.
   Älä siis kirjaa Sheetiin mitään mitä ei voi julkaista.
 - **Drive-kansion jakoasetus periytyy Sheeteihin.** Jos kansio on jaettu linkillä

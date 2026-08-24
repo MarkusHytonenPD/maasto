@@ -13,7 +13,7 @@ Kattaa:
   • "Lataa kaavoittajan suositukset" -tiedoston sisältö
   • viranomaisen lomake: esitäyttö, POST-runko, onnistuminen ja virheet
   • Sheetsin tuore data voittaa GeoJSONin arvot
-  • kolme tahoa: erilliset lausunnot, oma näkymä ja oma tallennus
+  • kolme tahoa: erilliset kommentit, oma näkymä ja oma tallennus
   • oman nimen muistaminen (toisen tahon nimeä ei esitäytetä)
   • XSS: attribuuttidatan HTML ei suoriudu
   • datan lähde: Pages-kopio ensin, raw.githubusercontent.com varalla
@@ -409,13 +409,13 @@ def main():
            == ["Suositus säilyttämisestä"])
 
         vir = sivu.text_content(".pu-vir")
-        ok("kaikkien kolmen tahon lausunnot näkyvät lukuosiossa",
+        ok("kaikkien kolmen tahon kommentit näkyvät lukuosiossa",
            all(nimi in vir for _, nimi in TAHOT), vir[:90])
         ok("eri tahojen eri kannat näkyvät erikseen",
            "Suojelukohde" in vir and "Suositus säilyttämisestä" in vir
            and "Testi Viranomainen" in vir and "Museon Tarkastaja" in vir)
-        ok("taho jolta ei ole lausuntoa merkitään tyhjäksi",
-           "Ei lausuntoa" in vir)
+        ok("taho jolta ei ole kommenttia merkitään tyhjäksi",
+           "Ei kommenttia" in vir)
         ok("XSS ei suoriutunut",
            sivu.evaluate("window.HAKKEROITU === undefined")
            and "<script>" in sivu.inner_text(".pu-vir"))
@@ -491,9 +491,9 @@ def main():
 
     def testit2(sivu):
         ok("Sheetsin rivit haettiin tahokohtaisilla avaimilla",
-           sorted(sivu.evaluate("Object.keys(sheetsLausunnot)"))
+           sorted(sivu.evaluate("Object.keys(sheetsKommentit)"))
            == sorted([f"{T0}|lvv", f"{T0}|liitto"]),
-           sivu.evaluate("Object.keys(sheetsLausunnot)"))
+           sivu.evaluate("Object.keys(sheetsKommentit)"))
         sivu.click('.nakyma-control button[data-nakyma="lvv"]')
         sivu.wait_for_timeout(600)
         ok("väri Sheetsin arvosta, ei GeoJSONista",
@@ -509,7 +509,7 @@ def main():
         ok("lomake esitäytetty oman tahon kommentilla",
            sivu.input_value(".pu-vir-lomake textarea")
            == "Sheetsistä haettu tuore kommentti")
-        ok("toisen tahon lausunto näkyy mutta ei omassa lomakkeessa",
+        ok("toisen tahon kommentti näkyy mutta ei omassa lomakkeessa",
            "Liiton kanta" in sivu.text_content(".pu-vir")
            and "Liiton kanta" not in sivu.input_value(".pu-vir-lomake textarea"))
         ok("aktiivinen luokitus Sheetsistä",
@@ -555,7 +555,7 @@ def main():
         ok("kaavoittajan näkymässä ei Tallenna-nappia",
            sivu.eval_on_selector_all(".pu-vir-lomake", "e => e.length") == 0
            and sivu.eval_on_selector_all(".pu-lomake-footer", "e => e.length") == 0)
-        ok("kaavoittajan näkymä näyttää juuri tallennetun lausunnon",
+        ok("kaavoittajan näkymä näyttää juuri tallennetun kommentin",
            "Markus Testaaja" in sivu.text_content(".pu-vir"))
 
     aja(ENDPOINT, {"status": 200, "content_type": "application/json",
@@ -600,7 +600,7 @@ def main():
 
     def testit5(sivu):
         ok("Sheets-hakua ei yritetty",
-           sivu.evaluate("Object.keys(sheetsLausunnot).length") == 0)
+           sivu.evaluate("Object.keys(sheetsKommentit).length") == 0)
         sivu.click('.nakyma-control button[data-nakyma="lvv"]')
         sivu.wait_for_timeout(600)
         avaa(sivu, T0)

@@ -1,11 +1,11 @@
 /**
  * viranomainen_apps_script.gs
  * ===========================
- * Viranomaislausuntojen tallennus karttasovelluksesta Google Sheetiin.
+ * Viranomaisten kommenttien tallennus karttasovelluksesta Google Sheetiin.
  *
- * Yksi rivi per (rakennustunnus, taho): kolme lausunnonantajaa voivat
+ * Yksi rivi per (rakennustunnus, taho): kolme kommentoijatahoa voivat
  * kirjata saman kohteen toisistaan riippumatta, eikä kukaan ylikirjoita
- * toisen lausuntoa. Sama tunnus JA sama taho päivittää olemassa olevaa
+ * toisen kommenttia. Sama tunnus JA sama taho päivittää olemassa olevaa
  * riviä.
  *
  * DEPLOYAUSOHJE:
@@ -48,7 +48,7 @@ const SHEET_NAME = "Lausunnot";
 const SARAKKEET = ["tunnus", "taho", "luokitus_vir", "kommentti_vir", "nimi_vir"];
 
 // Sallitut tahot. Sama lista kuin kartta.js:n TAHOT — tuntematon taho
-// hylätään, jottei kirjoitusvirhe synnytä näkymätöntä neljättä lausuntoa.
+// hylätään, jottei kirjoitusvirhe synnytä näkymätöntä neljättä kommenttia.
 const TAHOT = ["LVV", "Vastuumuseo", "Maakuntaliitto"];
 
 // ── Apufunktiot ────────────────────────────────────────────────────────────

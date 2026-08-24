@@ -67,7 +67,7 @@ const LUOKITUS_VIR   = "luokitus_vir";
 const KOMMENTTI_VIR  = "kommentti_vir";
 const NIMI_VIR       = "nimi_vir";
 
-// Kolme lausunnonantajaa, kukin tallentaa ja näkyy kartalla erikseen.
+// Kolme kommentoijatahoa, kukin tallentaa ja näkyy kartalla erikseen.
 //   avain = GeoJSONin sarakepääte, nimi = Sheetin taho-arvo ja käyttöliittymä
 const TAHOT = [
   { avain: "lvv",    nimi: "LVV" },
@@ -130,14 +130,14 @@ const markkerit     = {};                  // tunnus → layer
 // Kaavoittajan selaimessa tekemät muutokset: { tunnus: arvo }
 let kenttaMuutokset = {};
 
-// Sheetsistä haetut lausunnot: { "tunnus|tahoavain": {luokitus_vir, ...} }
+// Sheetsistä haetut kommentit: { "tunnus|tahoavain": {luokitus_vir, ...} }
 // Nämä ovat tuoreempia kuin GeoJSONin arvot, jotka päivittyvät vain
 // pipeline-ajossa. Avaimessa on taho, koska kolme tahoa lausuu samasta
 // kohteesta toisistaan riippumatta.
-let sheetsLausunnot = {};
+let sheetsKommentit = {};
 
-/** Avain sheetsLausunnot-hakuun. */
-function lausuntoAvain(tunnus, tahoAvain) {
+/** Avain sheetsKommentit-hakuun. */
+function kommenttiAvain(tunnus, tahoAvain) {
   return `${tunnus}|${tahoAvain}`;
 }
 
@@ -173,10 +173,10 @@ function kenttaLuokitus(props) {
   return props[LUOKITUS];
 }
 
-/** Yhden tahon lausunto: Sheetsin tuore rivi voittaa GeoJSONin arvot. */
+/** Yhden tahon kommentti: Sheetsin tuore rivi voittaa GeoJSONin arvot. */
 function viranomaisArvot(props, tahoAvain) {
   const tunnus = String(props[TUNNUS] ?? "");
-  const rivi   = sheetsLausunnot[lausuntoAvain(tunnus, tahoAvain)];
+  const rivi   = sheetsKommentit[kommenttiAvain(tunnus, tahoAvain)];
   if (rivi) return rivi;
   return {
     [LUOKITUS_VIR]:  props[virSarake("luokitus", tahoAvain)],
@@ -191,7 +191,7 @@ function appsScriptUrl() {
 }
 
 /** Hakee Sheetin nykytilan Apps Scriptin doGet-rajapinnasta. */
-async function haeLausunnot() {
+async function haeKommentit() {
   const url = appsScriptUrl();
   if (!url) return;
   try {
@@ -201,29 +201,29 @@ async function haeLausunnot() {
     if (data.status !== "ok" || !Array.isArray(data.rivit)) {
       throw new Error(data.message || "odottamaton vastaus");
     }
-    sheetsLausunnot = {};
+    sheetsKommentit = {};
     let tuntemattomia = 0;
     data.rivit.forEach(r => {
       const tunnus = String(r.tunnus ?? "").trim();
       const taho   = TAHOT.find(x => x.nimi === String(r[TAHO] ?? "").trim());
       if (!tunnus) return;
-      // Tuntematon taho jätetään pois: muuten lausunto ei näkyisi missään
+      // Tuntematon taho jätetään pois: muuten kommentti ei näkyisi missään
       // näkymässä mutta olisi silti Sheetissä
       if (!taho) { tuntemattomia++; return; }
-      sheetsLausunnot[lausuntoAvain(tunnus, taho.avain)] = r;
+      sheetsKommentit[kommenttiAvain(tunnus, taho.avain)] = r;
     });
     if (tuntemattomia) {
       console.warn(`Sheetissä ${tuntemattomia} riviä tuntemattomalla taholla`);
     }
-    console.log(`Viranomaislausuntoja Sheetsistä: ${Object.keys(sheetsLausunnot).length}`);
+    console.log(`Viranomaisten kommentteja Sheetsistä: ${Object.keys(sheetsKommentit).length}`);
   } catch (e) {
     // Kartta toimii ilman tätäkin — GeoJSONin arvot ovat silloin käytössä
-    console.warn("Lausuntojen haku Sheetsistä epäonnistui:", e);
+    console.warn("Kommenttien haku Sheetsistä epäonnistui:", e);
   }
 }
 
 /**
- * Muistaa lausunnonantajan oman nimen, jottei sitä kirjoiteta uudelleen.
+ * Muistaa kommentoijan oman nimen, jottei sitä kirjoiteta uudelleen.
  * Nimeä EI esitäytetä Sheetistä: silloin toisen tahon kirjaaman nimen voisi
  * tallentaa vahingossa omaksi.
  */
@@ -488,11 +488,11 @@ function osio(otsikkoteksti, luokkaNimi) {
 }
 
 /**
- * Kaikkien tahojen lausunnot vain luettavina. Näytetään aina, myös silloin
- * kun yhtä tahoa muokataan: lausunnonantajan on nähtävä muiden kannat.
+ * Kaikkien tahojen kommentit vain luettavina. Näytetään aina, myös silloin
+ * kun yhtä tahoa muokataan: kommentoijan on nähtävä muiden kannat.
  */
 function popupViranomaisetLuku(props, korostettuTaho) {
-  const el = osio("Viranomaisten lausunnot", "pu-vir");
+  const el = osio("Viranomaisten kommentit", "pu-vir");
 
   const rivit = TAHOT.map(taho => {
     const arvot = viranomaisArvot(props, taho.avain);
@@ -503,7 +503,7 @@ function popupViranomaisetLuku(props, korostettuTaho) {
     const korostus = taho.avain === korostettuTaho ? " pu-taho-aktiivinen" : "";
     return `<tr class="pu-taho${korostus}">
         <td><span class="pu-taho-merkki" style="background:${lk ? lk.vari : LUOKAT[0].vari}"></span>${esc(taho.nimi)}</td>
-        <td>${on ? esc(luokkaSelite(arvot[LUOKITUS_VIR])) : '<span class="pu-vir-tyhja">Ei lausuntoa</span>'}
+        <td>${on ? esc(luokkaSelite(arvot[LUOKITUS_VIR])) : '<span class="pu-vir-tyhja">Ei kommenttia</span>'}
             ${lisat ? `<div class="pu-taho-lisa">${lisat}</div>` : ""}</td>
       </tr>`;
   });
@@ -533,12 +533,12 @@ function kenttaRivi(nimi, elementti) {
 /**
  * Yhden tahon muokattava lomake. Tallennus Apps Script -endpointin kautta,
  * joka avaa tai päivittää rivin avaimella (tunnus, taho) — muiden tahojen
- * lausunnot eivät siis voi ylikirjoittua.
+ * kommentit eivät siis voi ylikirjoittua.
  */
 function popupViranomainenLomake(feature, tunnus, taho) {
   const props = feature.properties;
   const arvot = viranomaisArvot(props, taho.avain);
-  const el    = osio(`Oma lausunto — ${taho.nimi}`, "pu-vir pu-vir-lomake");
+  const el    = osio(`Oma kommentti — ${taho.nimi}`, "pu-vir pu-vir-lomake");
 
   // ── Luokituspainikkeet ──
   let valittu = normalisoiLuokka(arvot[LUOKITUS_VIR]);
@@ -566,7 +566,7 @@ function popupViranomainenLomake(feature, tunnus, taho) {
   kommentti.value = tyhja(arvot[KOMMENTTI_VIR]) ? "" : String(arvot[KOMMENTTI_VIR]);
 
   // Nimi omista tiedoista, ei Sheetistä: muuten kollegan nimi tulisi
-  // esitäyttönä omaan kenttään ja lausunto tallentuisi väärälle henkilölle
+  // esitäyttönä omaan kenttään ja kommentti tallentuisi väärälle henkilölle
   const nimi = document.createElement("input");
   nimi.type  = "text";
   nimi.value = muistetut.nimi;
@@ -589,7 +589,7 @@ function popupViranomainenLomake(feature, tunnus, taho) {
   const url = appsScriptUrl();
   if (!url) {
     // Hiljainen epäonnistuminen olisi pahin vaihtoehto: viranomainen ei
-    // tietäisi ettei lausunto tallentunut minnekään.
+    // tietäisi ettei kommentti tallentunut minnekään.
     tallenna.disabled = true;
     viesti.className  = "pu-lomake-viesti virhe";
     viesti.textContent = "Tallennusta ei ole määritetty (apps_script_url puuttuu config.json:sta)";
@@ -622,7 +622,7 @@ function popupViranomainenLomake(feature, tunnus, taho) {
       if (data.status !== "ok") throw new Error(data.message || "tuntematon virhe");
 
       // Tuore tila muistiin: väri ja lukuosio päivittyvät ilman uudelleenlatausta
-      sheetsLausunnot[lausuntoAvain(String(tunnus), taho.avain)] = {
+      sheetsKommentit[kommenttiAvain(String(tunnus), taho.avain)] = {
         tunnus:          String(tunnus),
         [TAHO]:          taho.nimi,
         [LUOKITUS_VIR]:  runko[LUOKITUS_VIR],
@@ -634,10 +634,10 @@ function popupViranomainenLomake(feature, tunnus, taho) {
 
       viesti.className   = "pu-lomake-viesti onnistui";
       viesti.textContent = data.toiminto === "paivitetty"
-        ? "Lausunto päivitetty ✓" : "Lausunto tallennettu ✓";
+        ? "Kommentti päivitetty ✓" : "Kommentti tallennettu ✓";
     } catch (e) {
       viesti.className   = "pu-lomake-viesti virhe";
-      viesti.textContent = `Tallennus epäonnistui: ${e.message}. Lausuntoa EI tallennettu.`;
+      viesti.textContent = `Tallennus epäonnistui: ${e.message}. Kommenttia EI tallennettu.`;
     } finally {
       tallenna.disabled = false;
     }
@@ -681,8 +681,8 @@ function luoPopup(feature, layer) {
     el.appendChild(kaava);
   }
 
-  // ── Viranomaisten lausunnot ──
-  // Kaikkien tahojen kannat näkyvät aina; aktiivisen tahon lausunto on
+  // ── Viranomaisten kommentit ──
+  // Kaikkien tahojen kannat näkyvät aina; aktiivisen tahon kommentti on
   // lisäksi muokattavana omassa lohkossaan.
   const taho = TAHOT.find(x => x.avain === aktiivinen_nakyma) || null;
   el.appendChild(popupViranomaisetLuku(props, taho ? taho.avain : null));
@@ -828,7 +828,7 @@ async function init() {
 
   // Sheetin nykytila ennen ensimmäistä piirtoa, jotta viranomaisnäkymän
   // värit ja lomakkeen esitäyttö perustuvat tuoreeseen dataan.
-  await haeLausunnot();
+  await haeKommentit();
 
   try {
     geojsonData = await haeData("data/kohteet.geojson");
