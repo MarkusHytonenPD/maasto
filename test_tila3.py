@@ -54,9 +54,18 @@ def _alusta_projekti(nimi="ZZ_testi"):
 
 
 def _luo_gpkg(gdf, nimi):
-    """GeoPackage jossa on päälayer, TOINEN TASO ja QGIS-tyylitaulu."""
+    """
+    GeoPackage jossa on päälayer, TOINEN TASO ja QGIS-tyylitaulu.
+
+    Viranomaissarakkeet pudotetaan, jotta lähtötilanne vastaa QGIS:stä
+    tullutta inventointi-GeoPackagea: pipelinen on lisättävä ne itse
+    ALTER TABLE:lla. Fikstuurin lähde-GeoJSON sisältää ne nykyään
+    valmiina (tyhjinä), koska GeoJSON-vienti kirjoittaa pakolliset
+    sarakkeet aina.
+    """
     polku = BASE / nimi
-    gdf.drop(columns=[c for c in ("kuva1", "kuva2", "kuva3") if c in gdf.columns]) \
+    pudota = ["kuva1", "kuva2", "kuva3"] + P.VIRANOMAIS_SARAKKEET
+    gdf.drop(columns=[c for c in pudota if c in gdf.columns]) \
        .to_file(polku, layer="ku", driver="GPKG")
     gdf.head(3).to_file(polku, layer="toinen_taso", driver="GPKG", mode="a")
 
