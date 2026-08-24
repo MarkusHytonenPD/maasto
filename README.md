@@ -190,9 +190,38 @@ git commit -m "Lisää apps_script_url: [projekti]"
 git push
 ```
 
-Kartta lukee configin GitHubista, joten **ilman pushia muutos ei näy**. Kun URL
-on paikallaan, viranomaisen Tallenna-nappi aktivoituu; siihen asti se on
-harmaana ja kertoo syyn.
+Kartta lukee configin `docs/[projekti]/`-kopiosta, joten **aja pipeline loppuun
+tai kopioi käsin** — ilman pushia ja kopiota muutos ei näy. Kun URL on
+paikallaan, viranomaisen Tallenna-nappi aktivoituu; siihen asti se on harmaana
+ja kertoo syyn.
+
+#### 4.5 Vaihtoehto: erillinen skripti (kun Laajennukset-valikko ei toimi)
+
+Jos *Laajennukset → Apps Script* päätyy Driven virhesivulle **"Tiedostoa ei voi
+avata juuri nyt"**, syy on yleensä monen Google-tilin sessio: selaimen oletustili
+(`/u/0`) ei ole se tili jolla on oikeus skriptiprojektiin. Kaksi ulospääsyä:
+
+- **Yksityinen ikkuna** ja kirjautuminen *vain* Sheetin omistavalle tilille.
+- **Erillinen (standalone) skripti** millä tahansa tilillä, jolla on
+  muokkausoikeus Sheetiin: avaa **script.new**, liitä
+  `viranomainen_apps_script.gs`, ja aseta Sheetin ID:
+
+  ```js
+  const SPREADSHEET_ID = "[sheets_id projektin config.json:sta]";
+  ```
+
+  Loput kohdista 4–9 samoin. Tämä on ainoa kohta jossa `SPREADSHEET_ID` täytetään
+  — sidotussa skriptissä se jää tyhjäksi.
+
+> Endpointin voi testata komentoriviltä. Huomaa ettei POSTissa käytetä
+> `-X POST`:ia: `/exec` vastaa 302:lla, ja `-X` pakottaisi POSTin myös
+> redirectiin, jolloin vastaus on HTTP 405 vaikka kirjoitus onnistui.
+>
+> ```bash
+> curl -sL "$URL"                                    # → {"status":"ok","rivit":[]}
+> curl -sL -H "Content-Type: text/plain;charset=UTF-8" \
+>      -d '{"tunnus":"TESTI","luokitus_vir":"paikallinen"}' "$URL"
+> ```
 
 > **Jos muutat skriptin koodia myöhemmin**, pelkkä tallennus ei riitä:
 > **Ota käyttöön → Hallinnoi käyttöönottoja** → kynäkuvake → **Versio: Uusi
