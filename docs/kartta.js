@@ -335,7 +335,15 @@ function paivitaLayer() {
       const tunnus = String(feature.properties[TUNNUS] ?? "");
       markkerit[tunnus] = layer;
       lisaaTunnusOtsikko(layer, tunnus);
-      layer.bindPopup(() => luoPopup(feature, layer), { maxWidth: 440, maxHeight: 640 });
+      layer.bindPopup(() => luoPopup(feature, layer), {
+        maxWidth:  440,
+        maxHeight: 640,
+        // Kartta panoroidaan niin ettei popup jää kontrollien alle:
+        // vasemmalla näkymävalitsin (~200 px), oikealla tasovalitsin.
+        // Z-indeksillä tätä ei voi ratkaista — ks. kartta.css.
+        autoPanPaddingTopLeft:     [230, 20],
+        autoPanPaddingBottomRight: [210, 20],
+      });
     },
   }).addTo(map);
 }

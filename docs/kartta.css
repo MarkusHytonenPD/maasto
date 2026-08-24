@@ -54,10 +54,12 @@ body { font-family: sans-serif; }
 .leaflet-tooltip.tunnus-otsikko::before { display: none; }
 
 /* ── Popup ────────────────────────────────────────────── */
-/* Popup kontrollien päälle: Leafletin oletuksena popup-taso on z-index 700
-   ja .leaflet-bar-kontrollit 800, joten näkymävalitsin peitti vasemmassa
-   ylänurkassa olevien kohteiden popupista osan — myös ensimmäisen kuvan. */
-.leaflet-popup-pane { z-index: 900; }
+/* HUOM: popupia ei saa kontrollien päälle z-indeksillä. .leaflet-map-pane on
+   z-index 400 ja sillä on transform, joka luo pinoamiskontekstin — kaikki sen
+   sisällä olevat tasot maalautuvat yhtenä nippuna, eikä popup-tason z-index
+   pääse sen ulkopuolelle. Kontrollien kulma on z-index 1000 map panen
+   ulkopuolella. Päällekkäisyys hoidetaan siksi kartta.js:ssä popupin
+   autoPanPadding-asetuksilla, jotka panoroivat kartan kontrollien alta. */
 
 .pu { min-width: 330px; max-width: 400px; }
 .pu-otsikko { font-weight: bold; font-size: 14px; margin-bottom: 8px; }

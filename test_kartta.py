@@ -360,14 +360,29 @@ def main():
            not any(o.startswith("Viranomaisen") for o in otsikot))
         ok("kuvat popupissa", sivu.eval_on_selector_all(".pu-kuvat img", "e => e.length") >= 1)
 
-        # Popupin on oltava kontrollien päällä, muuten näkymävalitsin peittää
-        # vasemmassa ylänurkassa olevien kohteiden kuvat
-        kerrokset = sivu.evaluate("""() => ({
-            popup:     +getComputedStyle(document.querySelector('.leaflet-popup-pane')).zIndex,
-            valitsin:  +getComputedStyle(document.querySelector('.nakyma-control')).zIndex,
-        })""")
-        ok("popup piirtyy näkymävalitsimen päälle",
-           kerrokset["popup"] > kerrokset["valitsin"], kerrokset)
+        # Näkymävalitsin ei saa peittää popupia. Z-indeksillä tätä ei voi
+        # ratkaista (map pane on oma pinoamiskonteksti), vaan autoPanPadding
+        # panoroi kartan — testataan siis lopputulos, ei tyyliarvoja.
+        sivu.evaluate("map.closePopup()")
+        sivu.wait_for_timeout(300)
+        # Kohde siirretään täsmälleen näkymävalitsimen viereen, jottei testi
+        # riipu aineiston sijainneista
+        sivu.evaluate(f"""() => {{
+            const m = markkerit[{json.dumps(T0)}];
+            m.setLatLng(map.containerPointToLatLng([120, 200]));
+            m.openPopup();
+        }}""")
+        sivu.wait_for_selector(".pu", timeout=5000)
+        sivu.wait_for_timeout(1500)          # autoPanin panorointi
+        peitto = sivu.evaluate("""() => {
+            const p = document.querySelector('.leaflet-popup').getBoundingClientRect();
+            const c = document.querySelector('.nakyma-control').getBoundingClientRect();
+            const leveys  = Math.min(p.right, c.right) - Math.max(p.left, c.left);
+            const korkeus = Math.min(p.bottom, c.bottom) - Math.max(p.top, c.top);
+            return {leikkaus: Math.max(0, leveys) * Math.max(0, korkeus),
+                    popupVasen: p.left | 0, kontrolliOikea: c.right | 0};
+        }""")
+        ok("näkymävalitsin ei peitä popupia", peitto["leikkaus"] == 0, peitto)
 
         napit = sivu.eval_on_selector_all(".pu-kaava .pu-napit button",
                                           "e => e.map(x => x.textContent)")
