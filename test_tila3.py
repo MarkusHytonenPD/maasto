@@ -32,7 +32,7 @@ import pandas as pd
 
 import pipeline as P
 
-LAHDE_GEOJSON = REPO / "projektit" / "Heinlansi_rakult" / "data" / "kohteet.geojson"
+LAHDE_GEOJSON = REPO / "projektit" / "heinlansi_rak_kulttuuri" / "data" / "kohteet.geojson"
 
 BASE = Path(tempfile.mkdtemp(prefix="tila3-testi-"))
 tulokset = []

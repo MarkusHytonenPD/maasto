@@ -36,8 +36,8 @@ from pathlib import Path
 
 REPO   = Path(__file__).resolve().parent
 DOCS   = REPO / "docs"
-LAHDE  = REPO / "projektit" / "Heinlansi_rakult" / "data" / "kohteet.geojson"
-KUVAT  = REPO / "projektit" / "Heinlansi_rakult" / "kuvat"
+LAHDE  = REPO / "projektit" / "heinlansi_rak_kulttuuri" / "data" / "kohteet.geojson"
+KUVAT  = REPO / "projektit" / "heinlansi_rak_kulttuuri" / "kuvat"
 
 RAW       = "https://raw.githubusercontent.com/MarkusHytonenPD/maasto/main/"
 PROJEKTI  = "ZZ_selaintesti"
