@@ -296,14 +296,20 @@ function pisteVari(props) {
     : luokkaVari(viranomaisArvot(props)[LUOKITUS_VIR]);
 }
 
+const MARKKERI_SADE = 14;
+
 function markerTyyli(props) {
+  const vari = pisteVari(props);
   return {
-    radius: 7,
-    fillColor: pisteVari(props),
-    color: "#fff",
-    weight: 1,
+    radius: MARKKERI_SADE,
+    // Väritys ääriviivassa, ei täytössä — kaavarasteri näkyy symbolin läpi
+    color: vari,
+    weight: 3,
     opacity: 1,
-    fillOpacity: 0.85,
+    // Ei täyttöä lainkaan. Klikattavuus hoidetaan kartta.css:n
+    // pointer-events-säännöllä, ei näkymättömällä täytöllä: Chrome ei pidä
+    // fill-opacity: 0 -täyttöä maalattuna, joten klikkaus menisi läpi.
+    fill: false,
   };
 }
 
@@ -320,7 +326,8 @@ function lisaaTunnusOtsikko(layer, tunnus) {
   layer.bindTooltip(esc(tunnus), {
     permanent: true,
     direction: "right",
-    offset:    [9, 0],
+    // Symbolin reunan ulkopuolelle, muuten otsikko osuisi ympyrän päälle
+    offset:    [MARKKERI_SADE + 5, 0],
     opacity:   1,
     className: "tunnus-otsikko",
   });
@@ -753,7 +760,18 @@ async function init() {
       format:      "image/png",
       transparent: true,
       version:     "1.1.1",
-      tileSize:    512,
+      // GeoServer ei lähetä cache-control- eikä etag-otsakkeita, joten selain
+      // ei voi tallentaa laattoja välimuistiin: sama alue haetaan uudelleen
+      // joka zoomauksella. Pyyntöjen määrä on siksi ainoa vipu.
+      //   • 1024 px laatta = neljäsosa pyynnöistä 512:een verrattuna
+      //   • updateWhenZooming/updateWhenIdle: ei pyyntöjä välizoomeille eikä
+      //     kesken panoroinnin, vain kun kartta pysähtyy
+      //   • keepBuffer: näkymän ulkopuoliset laatat säilyvät pidempään,
+      //     joten panorointi takaisin ei hae niitä uudelleen
+      tileSize:          1024,
+      updateWhenZooming: false,
+      updateWhenIdle:    true,
+      keepBuffer:        4,
     });
     layer.on("add", () => {
       layer.getContainer().style.mixBlendMode = "multiply";

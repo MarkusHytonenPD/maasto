@@ -33,6 +33,14 @@ body { font-family: sans-serif; }
 }
 .nakyma-control button.toiminto:hover { background: #f0f0f0; }
 
+/* ── Kohdesymbolit ────────────────────────────────────── */
+/* Symbolit ovat täyttämättömiä (väri on ääriviivassa), joten SVG:n oletus
+   pointer-events: visiblePainted rajaisi osumapinnan 3 px levyiseen
+   renkaaseen — keskeltä klikkaus menisi läpi. Näkymätön täyttö ei auta:
+   Chrome ei pidä fill-opacity: 0:aa maalattuna. Valitsin on kirjoitettu
+   samaan muotoon kuin Leafletin oma sääntö, muuten se häviää tarkkuudessa. */
+.leaflet-pane > svg path.leaflet-interactive { pointer-events: all; }
+
 /* ── Tunnusotsikot kartalla ───────────────────────────── */
 .leaflet-tooltip.tunnus-otsikko {
   background: none;

@@ -307,7 +307,7 @@ def main():
         return sivu.evaluate("""() => {
           const laske = {};
           document.querySelectorAll('path.leaflet-interactive').forEach(p => {
-            const v = p.getAttribute('fill'); laske[v] = (laske[v] || 0) + 1; });
+            const v = p.getAttribute('stroke'); laske[v] = (laske[v] || 0) + 1; });
           return laske; }""")
 
     def avaa(sivu, tunnus):
@@ -410,12 +410,12 @@ def main():
 
         # Luokituksen muutos
         avaa(sivu, T0)
-        ennen = sivu.evaluate(f"markkerit[{json.dumps(T0)}].options.fillColor")
+        ennen = sivu.evaluate(f"markkerit[{json.dumps(T0)}].options.color")
         sivu.click(".pu-kaava .pu-napit button:nth-child(3)")     # Suojelukohde
         sivu.wait_for_timeout(300)
         ok("pisteen väri päivittyi heti",
            ennen == "#1f78b4"
-           and sivu.evaluate(f"markkerit[{json.dumps(T0)}].options.fillColor") == "#e31a1c")
+           and sivu.evaluate(f"markkerit[{json.dumps(T0)}].options.color") == "#e31a1c")
         ok("aktiivinen korostus siirtyi",
            sivu.eval_on_selector_all(".pu-kaava .pu-napit button.aktiivinen",
                                      "e => e.map(x => x.textContent)") == ["Suojelukohde"])
@@ -438,7 +438,7 @@ def main():
         sivu.click("#nakyma-kaavoittaja")
         sivu.wait_for_timeout(500)
         ok("muutos säilyi näkymän vaihdon yli",
-           sivu.evaluate(f"markkerit[{json.dumps(T0)}].options.fillColor") == "#e31a1c")
+           sivu.evaluate(f"markkerit[{json.dumps(T0)}].options.color") == "#e31a1c")
         ok("tunnusotsikot piirtyivät uudelleen näkymän vaihdossa",
            sivu.eval_on_selector_all(".leaflet-tooltip.tunnus-otsikko", "e => e.length")
            == len(piirteet))
@@ -475,8 +475,8 @@ def main():
         sivu.click("#nakyma-viranomainen")
         sivu.wait_for_timeout(600)
         ok("väri Sheetsin arvosta, ei GeoJSONista",
-           sivu.evaluate(f"markkerit[{json.dumps(T0)}].options.fillColor") == "#1f78b4",
-           sivu.evaluate(f"markkerit[{json.dumps(T0)}].options.fillColor"))
+           sivu.evaluate(f"markkerit[{json.dumps(T0)}].options.color") == "#1f78b4",
+           sivu.evaluate(f"markkerit[{json.dumps(T0)}].options.color"))
 
         avaa(sivu, T0)
         sivu.wait_for_selector(".pu-vir-lomake", timeout=5000)
@@ -507,7 +507,7 @@ def main():
             "nimi_vir": "Markus Testaaja", "virasto_vir": "Maakuntamuseo"},
            postit[-1]["body"])
         ok("väri päivittyi tallennuksesta",
-           sivu.evaluate(f"markkerit[{json.dumps(T0)}].options.fillColor") == "#e31a1c")
+           sivu.evaluate(f"markkerit[{json.dumps(T0)}].options.color") == "#e31a1c")
         ok("nimi ja virasto muistiin",
            json.loads(sivu.evaluate("localStorage.getItem('viranomainen_tiedot')"))
            == {"nimi": "Markus Testaaja", "virasto": "Maakuntamuseo"})
