@@ -1360,6 +1360,57 @@ def lue_kaavoittajan_geojson(polku: Path) -> dict:
     return tulos
 
 
+def _lue_sheet_apilla(sheets_id: str, valilehti: str):
+    """Lukee välilehden Sheets-API:lla. Palauttaa DataFramen tai None."""
+    creds = _google_creds()
+    if not creds:
+        return None
+    try:
+        from googleapiclient.discovery import build
+
+        palvelu = build("sheets", "v4", credentials=creds, cache_discovery=False)
+        arvot = (palvelu.spreadsheets().values()
+                 .get(spreadsheetId=sheets_id, range=valilehti)
+                 .execute().get("values", []))
+    except Exception as e:
+        print(f"  ⚠ Sheets-API-luku epäonnistui ({e}) — yritetään julkista CSV:tä")
+        return None
+
+    if not arvot:
+        print(f"  ⚠ Välilehti '{valilehti}' on tyhjä")
+        return pd.DataFrame()
+
+    otsikot = [str(x).strip() for x in arvot[0]]
+    # Vajaat rivit täytetään, jotta DataFrame syntyy myös kun loppusarakkeet
+    # ovat tyhjiä — Sheets-API katkaisee rivin viimeiseen täytettyyn soluun
+    rivit = [(r + [""] * len(otsikot))[:len(otsikot)] for r in arvot[1:]]
+    return pd.DataFrame(rivit, columns=otsikot, dtype=str)
+
+
+def _lue_sheet_csvna(sheets_id: str, valilehti: str):
+    """Varalla: julkinen gviz-CSV. Toimii vain jos Sheet on jaettu linkillä."""
+    try:
+        import io
+        from urllib.parse import quote
+
+        import requests
+    except ImportError as e:
+        print(f"  ⚠ Kirjasto puuttuu ({e}) — viranomaisdataa ei haettu")
+        return None
+
+    url = (f"https://docs.google.com/spreadsheets/d/{sheets_id}"
+           f"/gviz/tq?tqx=out:csv&sheet={quote(valilehti)}")
+    try:
+        vastaus = requests.get(url, timeout=30)
+        vastaus.raise_for_status()
+        vastaus.encoding = "utf-8"
+        return pd.read_csv(io.StringIO(vastaus.text), dtype=str)
+    except Exception as e:
+        print(f"  ⚠ Sheets-haku epäonnistui: {e}")
+        print(f"    Aja 'python3 auth_pipeline.py' tai jaa Sheet lukuoikeudella")
+        return None
+
+
 def hae_viranomaisdata() -> dict:
     """
     Hakee viranomaislausunnot Sheetsistä julkisena CSV:nä — ei autentikointia,
@@ -1371,27 +1422,17 @@ def hae_viranomaisdata() -> dict:
         print("  Sheets-ID:tä ei ole config.json:issa — viranomaisdataa ei haettu")
         return {}
 
-    try:
-        import io
-        from urllib.parse import quote
-
-        import requests
-    except ImportError as e:
-        print(f"  ⚠ Kirjasto puuttuu ({e}) — viranomaisdataa ei haettu")
-        return {}
-
     valilehti = cfg.get("sheets_valilehti") or SHEET_VALILEHTI
-    url = (f"https://docs.google.com/spreadsheets/d/{sheets_id}"
-           f"/gviz/tq?tqx=out:csv&sheet={quote(valilehti)}")
 
-    try:
-        vastaus = requests.get(url, timeout=30)
-        vastaus.raise_for_status()
-        vastaus.encoding = "utf-8"
-        df = pd.read_csv(io.StringIO(vastaus.text), dtype=str)
-    except Exception as e:
-        print(f"  ⚠ Sheets-haku epäonnistui: {e}")
-        print(f"    Tarkista että Sheet on jaettu lukuoikeudella ja välilehti on '{valilehti}'")
+    # Luku Sheets-API:lla omalla tokenilla. Aiemmin tähän käytettiin julkista
+    # gviz-CSV:tä, mutta se vaatii että Sheet on jaettu linkin tietäville —
+    # ja Drive-kansio on tarkoituksella Rajoitettu-tilassa, jottei kukaan
+    # pääse kirjoittamaan lausuntoja endpointin ohi. API-luku toimii
+    # jakoasetuksista riippumatta, koska token omistaa tiedoston.
+    df = _lue_sheet_apilla(sheets_id, valilehti)
+    if df is None:
+        df = _lue_sheet_csvna(sheets_id, valilehti)
+    if df is None:
         return {}
 
     # gviz ei virheile tuntemattomasta sheet-nimestä vaan palauttaa

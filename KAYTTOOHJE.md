@@ -329,7 +329,8 @@ Muista pushata `config.json` kun muokkaat sitä käsin — kartta lukee sen GitH
 | Popup näyttää väärät kentät | `naytettavat_sarakkeet` projektin `config.json`:issa. Aja pipeline ja valitse sarakkeet uudelleen, tai muokkaa käsin ja pushaa. |
 | Viranomaisen Tallenna-nappi harmaana | `apps_script_url` puuttuu `config.json`:sta tai sitä ei ole pushattu. |
 | *Tallennus epäonnistui: HTTP 401/403* | Apps Script -deployment ei ole tilassa *Käyttäjät: Kaikki*, tai URL on vanhan deploymentin. Tee uusi deployment ja päivitä URL. |
-| Viranomaisen lausunnot eivät näy kartalla | Kartta hakee ne `apps_script_url`:sta. Tarkista selaimen konsolista *Lausuntojen haku Sheetsistä epäonnistui*. |
+| Viranomaisen lausunnot eivät näy kartalla | Kartta hakee ne `apps_script_url`:sta. Tarkista selaimen konsolista *Lausuntojen haku Sheetsistä epäonnistui*. Jos konsolissa lukee *tuntemattomalla taholla*, Apps Script on vanhaa versiota tai `taho`-sarake on tyhjä. |
+| Tila 3: *Sheets-API-luku epäonnistui* | Token puuttuu tai on vanhentunut — aja `python3 auth_pipeline.py`. Julkista CSV:tä ei voi käyttää, koska Drive-kansio on Rajoitettu-tilassa. |
 | Tila 3: *Sheetistä puuttuu sarakkeita* | Sheetin otsikkorivi on muuttunut. Palauta: `tunnus, taho, luokitus_vir, kommentti_vir, nimi_vir`. |
 | Tila 3: *Ohitettu N riviä tuntemattomalla taholla* | Sheetin `taho`-sarakkeessa on muu arvo kuin `LVV`, `Vastuumuseo` tai `Maakuntaliitto` — korjaa kirjoitusasu, muuten lausunto ei päädy GeoPackageen. |
 | Tila 3: *Tunnuksia ei löytynyt GeoPackagesta* | GeoJSON tai Sheet on eri projektista, tai GeoPackage on vanhentunut. |

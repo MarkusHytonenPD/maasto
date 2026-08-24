@@ -88,7 +88,8 @@ poistaa. Käytännön suojaus on siis:
 
 Viranomainen kirjaa luokituksensa ja kommenttinsa suoraan karttasivulla. Tiedot
 menevät projektikohtaiseen Google Sheetiin Apps Script -endpointin kautta, eikä
-viranomainen tarvitse Google-tiliä. Pipeline hakee ne takaisin julkisena CSV:nä.
+viranomainen tarvitse Google-tiliä. Pipeline hakee ne takaisin Sheets-API:lla
+omalla tokenillaan, joten Sheetin ei tarvitse olla julkisesti luettavissa.
 
 #### 4.1 Drive-kansio
 
