@@ -360,6 +360,15 @@ def main():
            not any(o.startswith("Viranomaisen") for o in otsikot))
         ok("kuvat popupissa", sivu.eval_on_selector_all(".pu-kuvat img", "e => e.length") >= 1)
 
+        # Popupin on oltava kontrollien päällä, muuten näkymävalitsin peittää
+        # vasemmassa ylänurkassa olevien kohteiden kuvat
+        kerrokset = sivu.evaluate("""() => ({
+            popup:     +getComputedStyle(document.querySelector('.leaflet-popup-pane')).zIndex,
+            valitsin:  +getComputedStyle(document.querySelector('.nakyma-control')).zIndex,
+        })""")
+        ok("popup piirtyy näkymävalitsimen päälle",
+           kerrokset["popup"] > kerrokset["valitsin"], kerrokset)
+
         napit = sivu.eval_on_selector_all(".pu-kaava .pu-napit button",
                                           "e => e.map(x => x.textContent)")
         ok("kolme luokituspainiketta",

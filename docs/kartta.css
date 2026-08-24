@@ -54,6 +54,11 @@ body { font-family: sans-serif; }
 .leaflet-tooltip.tunnus-otsikko::before { display: none; }
 
 /* ── Popup ────────────────────────────────────────────── */
+/* Popup kontrollien päälle: Leafletin oletuksena popup-taso on z-index 700
+   ja .leaflet-bar-kontrollit 800, joten näkymävalitsin peitti vasemmassa
+   ylänurkassa olevien kohteiden popupista osan — myös ensimmäisen kuvan. */
+.leaflet-popup-pane { z-index: 900; }
+
 .pu { min-width: 330px; max-width: 400px; }
 .pu-otsikko { font-weight: bold; font-size: 14px; margin-bottom: 8px; }
 .pu-tunnus { color: #777; font-weight: normal; }
