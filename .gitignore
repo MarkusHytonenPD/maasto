@@ -17,3 +17,15 @@ desktop.ini
 
 # Google OAuth -tunnistetiedot (EI gitiin)
 credentials/
+
+# Lähtödata (GeoPackaget, kameran DCIM-kansiot) pidetään repon ULKOPUOLELLA:
+#   /home/markus/lahtodata/[projekti]/
+# Satoja megoja per projekti, eikä git-historiasta saisi niitä enää pois:
+# historian uudelleenkirjoitus rikkoisi kuvien raw.githubusercontent-URLit,
+# jotka rakentuvat main-haaran varaan. Nämä säännöt ovat varmistus siltä
+# varalta että lähtödataa joskus kopioidaan vahingossa repon sisään.
+# Julkaistavaksi menee vain pipelinen tuottama kohteet.geojson ja sen
+# valitsemat kuvat projektit/[projekti]/-kansiosta.
+lahtodata/
+*.gpkg
+DCIM/
