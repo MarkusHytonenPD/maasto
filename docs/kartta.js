@@ -244,6 +244,49 @@ function naytettavatSarakkeet(props) {
 }
 
 // ═══════════════════════════════════════════════════════════════
+//  DATAN HAKU
+//  Ensisijainen lähde on GitHub Pages, jonne pipeline kopioi
+//  config.json:in ja kohteet.geojsonin: Pages tyhjentää CDN-
+//  välimuistinsa deployn yhteydessä, joten pipeline-ajon tulokset
+//  näkyvät kartalla heti. raw.githubusercontent.com on varalla
+//  projekteille joita ei ole kopioitu docs/:iin — se tarjoilee
+//  tiedostot max-age=300 -otsakkeella eikä revalidoi pyynnöstä,
+//  joten sen kautta data voi olla viisi minuuttia vanhaa.
+// ═══════════════════════════════════════════════════════════════
+
+/** Projektin tiedoston polku nykyisestä sivusta katsottuna. */
+function pagesPolku(tiedosto) {
+  const kansiot = new URL(".", document.baseURI).pathname.split("/").filter(Boolean);
+  // docs/[projekti]/index.html → tiedosto on samassa kansiossa.
+  // docs/index.html?projekti=… → projektin kansion kautta.
+  return kansiot[kansiot.length - 1] === PROJEKTI
+    ? tiedosto
+    : `${encodeURIComponent(PROJEKTI)}/${tiedosto}`;
+}
+
+async function haeData(tiedosto) {
+  const busteri = `v=${Date.now()}`;    // ohittaa selaimen oman välimuistin
+  const lahteet = [];
+  // file://-sivulla suhteellinen fetch ei ole sallittu — silloin vain raw
+  if (location.protocol.startsWith("http")) {
+    lahteet.push(`${pagesPolku(tiedosto)}?${busteri}`);
+  }
+  lahteet.push(`${CONFIG.GITHUB_RAW}/projektit/${PROJEKTI}/${tiedosto}?${busteri}`);
+
+  let virhe = new Error("ei lähteitä");
+  for (const url of lahteet) {
+    try {
+      const vastaus = await fetch(url, { cache: "no-store" });
+      if (vastaus.ok) return await vastaus.json();
+      virhe = new Error(`HTTP ${vastaus.status} — ${url}`);
+    } catch (e) {
+      virhe = e;
+    }
+  }
+  throw virhe;
+}
+
+// ═══════════════════════════════════════════════════════════════
 //  TEEMOITUS
 // ═══════════════════════════════════════════════════════════════
 
@@ -691,10 +734,9 @@ async function init() {
   lataaMuutokset();
 
   try {
-    const r = await fetch(`${CONFIG.GITHUB_RAW}/projektit/${PROJEKTI}/config.json`);
-    if (r.ok) projektiConfig = await r.json();
+    projektiConfig = await haeData("config.json");
   } catch (e) {
-    console.warn("config.json puuttuu, jatketaan oletuksilla");
+    console.warn("config.json puuttuu, jatketaan oletuksilla:", e.message);
   }
 
   (projektiConfig.tasot || []).forEach(taso => {
@@ -716,17 +758,17 @@ async function init() {
   // värit ja lomakkeen esitäyttö perustuvat tuoreeseen dataan.
   await haeLausunnot();
 
-  const geojsonUrl = `${CONFIG.GITHUB_RAW}/projektit/${PROJEKTI}/data/kohteet.geojson`;
-  fetch(geojsonUrl)
-    .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
-    .then(data => {
-      geojsonData = data;
-      paivitaLayer();
-      if (geojsonLayer && geojsonLayer.getBounds().isValid()) {
-        map.fitBounds(geojsonLayer.getBounds(), { padding: [40, 40] });
-      }
-    })
-    .catch(e => console.error("GeoJSON-lataus epäonnistui:", e));
+  try {
+    geojsonData = await haeData("data/kohteet.geojson");
+    paivitaLayer();
+    if (geojsonLayer && geojsonLayer.getBounds().isValid()) {
+      // maxZoom: yhden kohteen projektissa rajaus on nollan kokoinen ja
+      // Leaflet laskisi zoomiksi äärettömän ("infinite number of tiles").
+      map.fitBounds(geojsonLayer.getBounds(), { padding: [40, 40], maxZoom: 13 });
+    }
+  } catch (e) {
+    console.error("GeoJSON-lataus epäonnistui:", e);
+  }
 }
 
 init();

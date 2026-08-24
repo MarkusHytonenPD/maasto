@@ -555,11 +555,12 @@ def nimeä_kuvat(kuvakansio: Path, gdf, etaisyydet: dict) -> dict:
 #  VAIHE 3 & 4b — GIT PUSH
 # ══════════════════════════════════════════════════════════════════
 
-def git_push(viesti: str, suhteellinen_polku: str):
+def git_push(viesti: str, *suhteelliset_polut: str):
     """git add → commit → push. Ohittaa push:n jos ei muutoksia."""
-    print(f"  git add {suhteellinen_polku}")
+    polut = [p for p in suhteelliset_polut if p]
+    print(f"  git add {' '.join(polut)}")
     subprocess.run(
-        ["git", "-C", str(REPO_POLKU), "add", suhteellinen_polku],
+        ["git", "-C", str(REPO_POLKU), "add", *polut],
         check=True,
     )
     # Tarkistetaan vain stagetetut muutokset (--cached), ei working tree -muutoksia
@@ -696,6 +697,38 @@ def vie_geojson(gpkg_polku: Path, layer_nimi: str) -> dict:
 
 def _config_polku() -> Path:
     return PROJEKTI_POLKU / "config.json"
+
+
+def _docs_polku() -> Path:
+    return REPO_POLKU / "docs" / PROJEKTI
+
+
+def kopioi_docsiin() -> list:
+    """
+    Kopioi config.json:in ja kohteet.geojsonin docs/[projekti]/:iin ja
+    palauttaa git add:iin annettavat suhteelliset polut.
+
+    Kartta lukee datan ensisijaisesti GitHub Pagesista, koska Pages
+    tyhjentää välimuistinsa deployn yhteydessä. Sama tiedosto
+    raw.githubusercontent.comista tarjoillaan max-age=300 -otsakkeella,
+    eikä sen CDN revalidoi pyynnöstä — sitä kautta tämän ajon tulokset
+    näkyisivät kartalla enintään viiden minuutin viiveellä.
+    """
+    docs = _docs_polku()
+    (docs / "data").mkdir(parents=True, exist_ok=True)
+
+    polut = []
+    for lahde, kohde in (
+        (_config_polku(),                docs / "config.json"),
+        (DATA_POLKU / "kohteet.geojson", docs / "data" / "kohteet.geojson"),
+    ):
+        if not lahde.is_file():
+            continue
+        shutil.copy2(lahde, kohde)
+        suhteellinen = kohde.relative_to(REPO_POLKU).as_posix()
+        polut.append(suhteellinen)
+        print(f"  Kopioitu karttasovellukseen: {suhteellinen}")
+    return polut
 
 
 def _lue_projekticonfig() -> dict:
@@ -1589,6 +1622,7 @@ def main():
             git_push(
                 f"Päivitä luokitukset: {PROJEKTI}",
                 f"projektit/{PROJEKTI}/",
+                *kopioi_docsiin(),
             )
             print()
             print("=" * 60)
@@ -1708,6 +1742,7 @@ def main():
     git_push(
         f"Päivitä kohteet.geojson ja config: {PROJEKTI}",
         f"projektit/{PROJEKTI}/",
+        *kopioi_docsiin(),
     )
 
     print()

@@ -1,0 +1,11 @@
+{
+    "nimi": "Heinäveden itäranta – demo",
+    "tasot": [
+        {
+            "nimi":   "Kaavaluonnos",
+            "url":    "https://ubigu.ubihub.io/geoserver/kaavarasterit/ows",
+            "layer":  "kaavarasterit:hein_lans_luonnos",
+            "nakyva": true
+        }
+    ]
+}

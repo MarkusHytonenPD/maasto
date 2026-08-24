@@ -180,11 +180,17 @@ tunnukset eivät löytyneet GeoPackagesta:
 - `https://markushytonenpd.github.io/maasto/[projekti]/` — projektin oma sivu
 - `https://markushytonenpd.github.io/maasto/?projekti=[nimi]` — vanha tapa, toimii yhä
 
-Sivu hakee datan suoraan raw.githubusercontent.com:sta main-haarasta:
-`projektit/[projekti]/config.json` (WMS-tasot) ja `projektit/[projekti]/data/kohteet.geojson`.
-Kuvien osoitteet ovat valmiiksi geojsonissa. Uusi data näkyy siis heti pushin jälkeen
-ilman erillistä julkaisua — raw-palvelimen välimuisti voi viivästyttää muutaman
-minuutin, ja selain kannattaa päivittää kovalla latauksella (Ctrl+F5).
+Sivu hakee `config.json`:in (WMS-tasot) ja `data/kohteet.geojson`:in **Pages-kopiosta**,
+jonka pipeline kopioi `docs/[projekti]/`:iin joka ajossa. Kuvien osoitteet ovat valmiiksi
+geojsonissa. Uusi data näkyy heti pushin jälkeen, koska Pages tyhjentää välimuistinsa
+julkaisun yhteydessä.
+
+Jos Pages-kopio puuttuu (projekti kopioimatta), kartta hakee saman tiedoston
+`raw.githubusercontent.com`ista polusta `projektit/[projekti]/`. Sitä kautta data voi olla
+enintään 5 minuuttia vanhaa: raw tarjoilee tiedostot `max-age=300` -otsakkeella eikä sen
+CDN revalidoi asiakkaan pyynnöstä — `?v=`-parametri tai `Cache-Control: no-cache` ei auta.
+Oman selaimen välimuisti sen sijaan ohitetaan automaattisesti; jos silti epäilyttää,
+päivitä kovalla latauksella (Ctrl+F5).
 
 ### Mitä sivulla voi tehdä
 
@@ -285,6 +291,7 @@ Muista pushata `config.json` kun muokkaat sitä käsin — kartta lukee sen GitH
 | Sivu sanoo *Puuttuu URL-parametri* | Avattu juuri-URL ilman projektia. Käytä `/maasto/[projekti]/`. |
 | Kartta tyhjä, ei kohteita | `kohteet.geojson` puuttuu tai pushaamatta. Aja pipeline loppuun ja tarkista `git log`. |
 | Kuvat eivät näy popupissa | Kuvat pushaamatta, tai raw-välimuisti — odota muutama minuutti ja päivitä kovalla latauksella. |
+| Uusi luokitus tai kaavataso ei näy heti | Puuttuuko `docs/[projekti]/config.json`? Ilman Pages-kopiota data tulee raw:sta 5 min viiveellä. Aja pipeline loppuun asti — se kopioi ja pushaa kopion. |
 | Uusi kuva ei ilmesty | Onko rakennuksella jo 3 kuvaa, tai ohittiko kirjanpito kuvan duplikaattina? Katso ajon yhteenveto. |
 | Kaavarasteri puuttuu, konsolissa CORS-virhe | GeoServeriin tarvitaan `Access-Control-Allow-Origin` — Ubigun ylläpito. Muu kartta toimii normaalisti. |
 | Pohjakartta ei lataudu | MML-avain puuttuu tai vanhentunut `docs/config.js`:stä. |

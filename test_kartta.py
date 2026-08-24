@@ -15,6 +15,7 @@ Kattaa:
   • Sheetsin tuore data voittaa GeoJSONin arvot
   • nimen ja viraston muistaminen
   • XSS: attribuuttidatan HTML ei suoriudu
+  • datan lähde: Pages-kopio ensin, raw.githubusercontent.com varalla
 
 Ajo:
     python3 test_kartta.py
@@ -23,10 +24,14 @@ Vaatii:
     pip install playwright && playwright install chromium
 """
 import base64
+import functools
+import http.server
 import json
 import re
+import shutil
 import sys
 import tempfile
+import threading
 from pathlib import Path
 
 REPO   = Path(__file__).resolve().parent
@@ -91,6 +96,135 @@ def luo_fikstuuri(kansio: Path):
     return data
 
 
+class _Kasittelija(http.server.SimpleHTTPRequestHandler):
+    """SimpleHTTPRequestHandler ilman pyyntölokia testin tulosteessa."""
+    def log_message(self, *args):
+        pass
+
+
+def _palvele(kansio: Path):
+    """Käynnistää paikallisen http-palvelimen. Palauttaa (palvelin, portti)."""
+    class Palvelin(http.server.ThreadingHTTPServer):
+        allow_reuse_address = True
+        daemon_threads = True
+
+    palvelin = Palvelin(("127.0.0.1", 0),
+                        functools.partial(_Kasittelija, directory=str(kansio)))
+    threading.Thread(target=palvelin.serve_forever, daemon=True).start()
+    return palvelin, palvelin.server_address[1]
+
+
+def testaa_datan_lahde(base: Path, data: dict, virheet: list) -> list:
+    """
+    Varmistaa että kartta lukee datan Pages-kopiosta kun se on olemassa ja
+    raw:sta kun ei ole. Pages tyhjentää välimuistinsa deployssa, joten
+    pipeline-ajon tulokset näkyvät heti; raw pitää tiedostoa max-age=300
+    eikä revalidoi pyynnöstä.
+
+    Sivu tarjoillaan paikallisesta http-palvelimesta, koska file://-sivulla
+    suhteellista fetchiä ei voi tehdä.
+    """
+    from playwright.sync_api import sync_playwright
+
+    lahde   = base / "projektit" / PROJEKTI
+    pages   = base / "docs"
+    projekti_docs = pages / PROJEKTI
+    (projekti_docs / "data").mkdir(parents=True, exist_ok=True)
+    for nimi in ("kartta.js", "kartta.css", "config.js", "index.html"):
+        shutil.copy2(DOCS / nimi, pages / nimi)
+
+    # Projektikohtainen sivu (window.PROJEKTI) — pipelinen luoman kaltainen
+    (projekti_docs / "index.html").write_text(f"""<!DOCTYPE html>
+<html lang="fi"><head><meta charset="UTF-8" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="stylesheet" href="../kartta.css" /></head><body>
+<div id="map"></div>
+<div id="lightbox"><span id="lightbox-sulje">x</span><img id="lightbox-kuva" src="" alt="" /></div>
+<script>window.PROJEKTI = "{PROJEKTI}";</script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/proj4@2.11.0/dist/proj4.js"></script>
+<script src="https://unpkg.com/proj4leaflet@1.0.2/src/proj4leaflet.js"></script>
+<script src="../config.js"></script><script src="../kartta.js"></script>
+</body></html>""", encoding="utf-8")
+
+    # Lähteet erotetaan toisistaan nimellä ja kohdemäärällä
+    pohja = json.loads((lahde / "config.json").read_text(encoding="utf-8"))
+    (projekti_docs / "config.json").write_text(
+        json.dumps(dict(pohja, nimi="PAGES"), ensure_ascii=False), encoding="utf-8")
+    shutil.copy2(lahde / "data" / "kohteet.geojson",
+                 projekti_docs / "data" / "kohteet.geojson")
+
+    raw_cfg     = json.dumps(dict(pohja, nimi="RAW"), ensure_ascii=False)
+    raw_geojson = json.dumps({"type": "FeatureCollection",
+                              "features": data["features"][:1]}, ensure_ascii=False)
+
+    def raw(route, pyynto):
+        polku = pyynto.url[len(RAW):].split("?")[0]
+        if polku.endswith("config.json"):
+            route.fulfill(status=200, content_type="application/json", body=raw_cfg)
+        elif polku.endswith("kohteet.geojson"):
+            route.fulfill(status=200, content_type="application/json", body=raw_geojson)
+        else:
+            route.fulfill(status=404, body="ei löydy")
+
+    def lataa(konteksti, url):
+        sivu = konteksti.new_page()
+        pyynnot = []
+        sivu.on("request", lambda p: pyynnot.append(p.url))
+        sivu.on("console", lambda m: virheet.append(m.text)
+                if m.type == "error" and "Failed to load resource" not in m.text else None)
+        sivu.on("pageerror", lambda e: virheet.append(f"pageerror: {e}"))
+        sivu.route(RAW + "**", raw)
+        sivu.route("**maanmittauslaitos.fi/**",
+                   lambda r, q: r.fulfill(status=200, body=LAATTA, content_type="image/png"))
+        sivu.goto(url, wait_until="load")
+        sivu.wait_for_timeout(2500)
+        tila = {
+            "nimi":    sivu.evaluate("projektiConfig.nimi"),
+            "kohteet": sivu.evaluate("geojsonData ? geojsonData.features.length : 0"),
+            "pyynnot": pyynnot,
+        }
+        sivu.close()
+        return tila
+
+    palvelin, portti = _palvele(pages)
+    juuri = f"http://127.0.0.1:{portti}"
+    odotettu = f"{juuri}/{PROJEKTI}/config.json?v="
+    tulokset = []
+    try:
+        with sync_playwright() as pw:
+            selain    = pw.chromium.launch()
+            konteksti = selain.new_context()
+
+            juuresta = lataa(konteksti, f"{juuri}/index.html?projekti={PROJEKTI}")
+            tulokset.append(("juurisivu lukee Pages-kopion",
+                             juuresta["nimi"] == "PAGES"
+                             and juuresta["kohteet"] == len(data["features"]),
+                             f'{juuresta["nimi"]}, {juuresta["kohteet"]} kohdetta'))
+            tulokset.append(("haussa on välimuistin ohittava aikaleima",
+                             any(u.startswith(odotettu) for u in juuresta["pyynnot"]),
+                             odotettu))
+
+            projektisivu = lataa(konteksti, f"{juuri}/{PROJEKTI}/index.html")
+            tulokset.append(("projektisivu lukee Pages-kopion samasta kansiosta",
+                             projektisivu["nimi"] == "PAGES"
+                             and any(u.startswith(odotettu) for u in projektisivu["pyynnot"]),
+                             projektisivu["nimi"]))
+
+            # Ilman Pages-kopiota kartan on toimittava raw:n varassa
+            (projekti_docs / "config.json").unlink()
+            (projekti_docs / "data" / "kohteet.geojson").unlink()
+            varalta = lataa(konteksti, f"{juuri}/index.html?projekti={PROJEKTI}")
+            tulokset.append(("ilman Pages-kopiota data tulee raw:sta",
+                             varalta["nimi"] == "RAW" and varalta["kohteet"] == 1,
+                             f'{varalta["nimi"]}, {varalta["kohteet"]} kohdetta'))
+            selain.close()
+    finally:
+        palvelin.shutdown()
+        palvelin.server_close()
+    return tulokset
+
+
 def main():
     try:
         from playwright.sync_api import sync_playwright
@@ -130,7 +264,8 @@ def main():
             sivu.on("pageerror", lambda e: virheet.append(f"pageerror: {e}"))
 
             def raw(route, pyynto):
-                polku = pyynto.url[len(RAW):]
+                # Kartta lisää välimuistin ohittavan ?v=… -parametrin
+                polku = pyynto.url[len(RAW):].split("?")[0]
                 if polku.endswith(".jpg") and kuva:
                     route.fulfill(status=200, body=kuva.read_bytes(),
                                   content_type="image/jpeg")
@@ -429,6 +564,13 @@ def main():
            sivu.input_value(".pu-vir-lomake textarea").startswith("Arvokas pihapiiri"))
 
     aja("", {"status": 200, "body": "{}"}, testit5)
+
+    # ══ 6. Datan lähde: Pages ensin, raw varalla ══════════════════
+    # Pages tyhjentää välimuistinsa deployssa, raw pitää tiedostoa 5 min.
+    print("\n6. Datan lähde ja välimuistin ohitus")
+    tulos6 = testaa_datan_lahde(base, data, virheet)
+    for nimi, ehto, lisa in tulos6:
+        ok(nimi, ehto, lisa)
 
     if virheet:
         print("\nKonsolivirheet:")
