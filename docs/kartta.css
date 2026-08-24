@@ -38,8 +38,16 @@ body { font-family: sans-serif; }
    pointer-events: visiblePainted rajaisi osumapinnan 3 px levyiseen
    renkaaseen — keskeltä klikkaus menisi läpi. Näkymätön täyttö ei auta:
    Chrome ei pidä fill-opacity: 0:aa maalattuna. Valitsin on kirjoitettu
-   samaan muotoon kuin Leafletin oma sääntö, muuten se häviää tarkkuudessa. */
-.leaflet-pane > svg path.leaflet-interactive { pointer-events: all; }
+   samaan muotoon kuin Leafletin oma sääntö, muuten se häviää tarkkuudessa.
+
+   drop-shadow antaa ääriviivalle valkoisen taustareunuksen, jotta symboli
+   erottuu maastokartan viivastosta ja kaavarasterista. Se seuraa viivaa, joten
+   erillistä valkoista ympyrää ei tarvitse piirtää joka kohteelle. Kahdesti,
+   koska yksi kerros jää liian ohueksi. */
+.leaflet-pane > svg path.leaflet-interactive {
+  pointer-events: all;
+  filter: drop-shadow(0 0 1.5px #fff) drop-shadow(0 0 1.5px #fff);
+}
 
 /* ── Tunnusotsikot kartalla ───────────────────────────── */
 .leaflet-tooltip.tunnus-otsikko {

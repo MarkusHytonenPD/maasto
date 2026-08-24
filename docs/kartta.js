@@ -47,7 +47,9 @@ const layerControl = L.control.layers(
 // ═══════════════════════════════════════════════════════════════
 
 const LUOKAT = [
-  { arvo: "",             selite: "Ei merkintää",             vari: "#999999" },
+  // Harmaa on tummempi kuin popupin harmaat tekstit: ääriviivana vaalea
+  // harmaa hukkui maastokartan viivastoon
+  { arvo: "",             selite: "Ei merkintää",             vari: "#555555" },
   { arvo: "paikallinen",  selite: "Suositus säilyttämisestä", vari: "#1f78b4" },
   { arvo: "suojelukohde", selite: "Suojelukohde",             vari: "#e31a1c" },
 ];

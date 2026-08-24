@@ -341,7 +341,7 @@ def main():
 
         v = varit(sivu)
         ok("värit LUOKAT-taulukon mukaan",
-           v.get("#999999", 0) + v.get("#1f78b4", 0) + v.get("#e31a1c", 0) == len(piirteet)
+           v.get("#555555", 0) + v.get("#1f78b4", 0) + v.get("#e31a1c", 0) == len(piirteet)
            and v.get("#1f78b4") == 14 and v.get("#e31a1c") == 8, v)
 
         ok("näkymävalitsimen tekstit",
