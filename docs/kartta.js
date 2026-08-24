@@ -234,14 +234,20 @@ function otsikko(sarake) {
   return OTSIKOT[sarake] || sarake;
 }
 
-/** Popupissa näytettävät attribuuttisarakkeet config.json:sta. */
+/**
+ * Popupissa näytettävät attribuuttisarakkeet config.json:sta.
+ *
+ * Luokitus- ja viranomaissarakkeilla on popupissa omat osionsa, joten ne
+ * jätetään attribuuttitaulusta pois myös silloin kun ne on valittu
+ * naytettavat_sarakkeet-listaan — muuten sama arvo näkyisi kahdesti, ja
+ * ylempi esiintymä olisi se jota ei voi muokata.
+ */
 function naytettavatSarakkeet(props) {
+  const piilota = new Set([LUOKITUS, LUOKITUS_VIR, KOMMENTTI_VIR, NIMI_VIR, VIRASTO_VIR, ...KUVAT]);
   const valitut = projektiConfig.naytettavat_sarakkeet;
   if (Array.isArray(valitut) && valitut.length) {
-    return valitut.filter(s => s in props);
+    return valitut.filter(s => s in props && !piilota.has(s));
   }
-  // Ei valintaa configissa — näytetään kaikki paitsi erikseen esitetyt
-  const piilota = new Set([LUOKITUS, LUOKITUS_VIR, KOMMENTTI_VIR, NIMI_VIR, VIRASTO_VIR, ...KUVAT]);
   return Object.keys(props).filter(s => !piilota.has(s));
 }
 

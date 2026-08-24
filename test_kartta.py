@@ -47,7 +47,7 @@ ENDPOINT  = "https://apps-script.test/exec"
 LAATTA = base64.b64decode(
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADElEQVR42mP4//8/AAX+Av7czFnnAAAAAElFTkSuQmCC")
 
-NAYTA = ["tunnus", "vuosi", "huom", "suojeluhalu"]
+NAYTA = ["tunnus", "potentiaali", "vuosi", "huom", "suojeluhalu"]
 
 # Kommenttiin tarkoituksella HTML:ää ja lainausmerkkejä
 XSS = 'Arvokas pihapiiri, "erittäin" hyvä <script>window.HAKKEROITU = 1</script>'
@@ -356,6 +356,9 @@ def main():
         ok("popup näyttää vain valitut sarakkeet",
            otsikot == ["tunnus", "vuosi", "suojeluhalu"], otsikot)
         ok("tyhjä sarake (huom) jätetään pois", "huom" not in otsikot)
+        ok("kaavoittajan suositus ei toistu attribuuttitaulussa",
+           "Kaavoittajan suositus" not in otsikot and "potentiaali" not in otsikot,
+           otsikot)
         ok("viranomaissarakkeet eivät ole ylätaulussa",
            not any(o.startswith("Viranomaisen") for o in otsikot))
         ok("kuvat popupissa", sivu.eval_on_selector_all(".pu-kuvat img", "e => e.length") >= 1)
