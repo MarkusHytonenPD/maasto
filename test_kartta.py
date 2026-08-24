@@ -7,6 +7,7 @@ verkkoon eikä muokkaa docs/-kansion tiedostoja.
 
 Kattaa:
   • pisteiden väritys molemmissa näkymissä (LUOKAT-taulukko)
+  • tunnusotsikot kartalla (aina näkyvät, eivät nappaa klikkauksia)
   • popup: naytettavat_sarakkeet, kuvat, tyhjien kenttien ohitus
   • kaavoittajan luokituspainikkeet, localStorage, värin päivitys heti
   • "Lataa kaavoittajan suositukset" -tiedoston sisältö
@@ -191,6 +192,18 @@ def main():
         maara = sivu.eval_on_selector_all("path.leaflet-interactive", "e => e.length")
         ok("kaikki pisteet piirtyivät", maara == len(piirteet), f"{maara} kpl")
 
+        otsikot_kartalla = sivu.eval_on_selector_all(
+            ".leaflet-tooltip.tunnus-otsikko", "e => e.map(x => x.textContent)")
+        ok("tunnus näkyy kartalla joka pisteellä",
+           sorted(otsikot_kartalla) == sorted(str(f["properties"]["tunnus"]) for f in piirteet),
+           f"{len(otsikot_kartalla)} otsikkoa")
+        tyyli = sivu.eval_on_selector(
+            ".leaflet-tooltip.tunnus-otsikko",
+            "e => { const s = getComputedStyle(e);"
+            "  return {tausta: s.backgroundColor, hiiri: s.pointerEvents}; }")
+        ok("otsikko on läpinäkyvä eikä nappaa klikkauksia",
+           tyyli["tausta"] == "rgba(0, 0, 0, 0)" and tyyli["hiiri"] == "none", tyyli)
+
         v = varit(sivu)
         ok("värit LUOKAT-taulukon mukaan",
            v.get("#999999", 0) + v.get("#1f78b4", 0) + v.get("#e31a1c", 0) == len(piirteet)
@@ -267,6 +280,9 @@ def main():
         sivu.wait_for_timeout(500)
         ok("muutos säilyi näkymän vaihdon yli",
            sivu.evaluate(f"markkerit[{json.dumps(T0)}].options.fillColor") == "#e31a1c")
+        ok("tunnusotsikot piirtyivät uudelleen näkymän vaihdossa",
+           sivu.eval_on_selector_all(".leaflet-tooltip.tunnus-otsikko", "e => e.length")
+           == len(piirteet))
 
         # Lataus
         with sivu.expect_download(timeout=10000) as odota:

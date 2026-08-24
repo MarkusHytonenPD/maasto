@@ -33,6 +33,26 @@ body { font-family: sans-serif; }
 }
 .nakyma-control button.toiminto:hover { background: #f0f0f0; }
 
+/* ── Tunnusotsikot kartalla ───────────────────────────── */
+.leaflet-tooltip.tunnus-otsikko {
+  background: none;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: #1a1a1a;
+  /* Valkoinen reunus: numero pysyy luettavana myös kaavarasterin
+     tummien alueiden ja metsäkuvioinnin päällä. */
+  text-shadow: -1px -1px 0 #fff,  1px -1px 0 #fff,
+               -1px  1px 0 #fff,  1px  1px 0 #fff,
+               -1px  0    0 #fff,  1px  0    0 #fff,
+                0   -1px  0 #fff,  0    1px  0 #fff;
+  white-space: nowrap;
+}
+/* Leafletin oletusnuoli pois — otsikko on pelkkä teksti */
+.leaflet-tooltip.tunnus-otsikko::before { display: none; }
+
 /* ── Popup ────────────────────────────────────────────── */
 .pu { min-width: 330px; max-width: 400px; }
 .pu-otsikko { font-weight: bold; font-size: 14px; margin-bottom: 8px; }

@@ -1,6 +1,19 @@
 {
     "nimi": "heinlansi_rak_kulttuuri",
-    "tasot": [],
+    "tasot": [
+        {
+            "nimi":   "Kaavaluonnos",
+            "url":    "https://ubigu.ubihub.io/geoserver/kaavarasterit/ows",
+            "layer":  "kaavarasterit:hein_lans_luonnos",
+            "nakyva": true
+        },
+        {
+            "nimi":   "Voimassaoleva yleiskaava",
+            "url":    "https://ubigu.ubihub.io/geoserver/kaavarasterit/ows",
+            "layer":  "kaavarasterit:Hein_lans_alkup",
+            "nakyva": false
+        }
+    ],
     "sheets_id": "1r1A8g08Mdovg3inxJol1rxTLdSnF6LtvpKB_E973AlY",
     "sheets_valilehti": "Lausunnot",
     "apps_script_url": "",

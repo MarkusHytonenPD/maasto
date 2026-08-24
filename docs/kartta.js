@@ -268,13 +268,30 @@ function luoMarker(feature, latlng) {
   return L.circleMarker(latlng, markerTyyli(feature.properties));
 }
 
+/**
+ * Tunnus näkyviin pisteen viereen, jotta kohde on tunnistettavissa
+ * kartalta ilman popupin avaamista (esim. luetteloa vasten luettaessa).
+ */
+function lisaaTunnusOtsikko(layer, tunnus) {
+  if (!tunnus) return;
+  layer.bindTooltip(esc(tunnus), {
+    permanent: true,
+    direction: "right",
+    offset:    [9, 0],
+    opacity:   1,
+    className: "tunnus-otsikko",
+  });
+}
+
 function paivitaLayer() {
   if (!geojsonData) return;
   if (geojsonLayer) map.removeLayer(geojsonLayer);
   geojsonLayer = L.geoJSON(geojsonData, {
     pointToLayer: luoMarker,
     onEachFeature(feature, layer) {
-      markkerit[String(feature.properties[TUNNUS] ?? "")] = layer;
+      const tunnus = String(feature.properties[TUNNUS] ?? "");
+      markkerit[tunnus] = layer;
+      lisaaTunnusOtsikko(layer, tunnus);
       layer.bindPopup(() => luoPopup(feature, layer), { maxWidth: 440, maxHeight: 640 });
     },
   }).addTo(map);
