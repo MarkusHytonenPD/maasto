@@ -121,7 +121,7 @@ Selain avautuu — valitse tili jonka haluat **omistavan** luodut Sheetit
 
 Pipeline luo Sheetin automaattisesti projektin ensimmäisellä ajolla: nimi
 `Viranomaislausunnot_[projekti]`, välilehti `Lausunnot`, otsikkorivi
-`tunnus | luokitus_vir | kommentti_vir | nimi_vir | virasto_vir`. Sheet jaetaan
+`tunnus | taho | luokitus_vir | kommentti_vir | nimi_vir`. Sheet jaetaan
 lukuoikeudella linkin tietäville (CSV-hakua varten) ja kirjoitusoikeudella
 `SHEET_JAKO_EMAILIT`-vakion osoitteille. `sheets_id` tallentuu projektin
 `config.json`:iin, joten Sheet luodaan vain kerran per projekti.
