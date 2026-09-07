@@ -2,15 +2,15 @@
     "nimi": "heinlansi_rak_kulttuuri",
     "tasot": [
         {
-            "nimi":   "Kaavaluonnos",
-            "url":    "https://ubigu.ubihub.io/geoserver/kaavarasterit/ows",
-            "layer":  "kaavarasterit:hein_lans_luonnos",
+            "nimi": "Kaavaluonnos",
+            "url": "https://ubigu.ubihub.io/geoserver/kaavarasterit/ows",
+            "layer": "kaavarasterit:hein_lans_luonnos",
             "nakyva": true
         },
         {
-            "nimi":   "Voimassaoleva yleiskaava",
-            "url":    "https://ubigu.ubihub.io/geoserver/kaavarasterit/ows",
-            "layer":  "kaavarasterit:Hein_lans_alkup",
+            "nimi": "Voimassaoleva yleiskaava",
+            "url": "https://ubigu.ubihub.io/geoserver/kaavarasterit/ows",
+            "layer": "kaavarasterit:Hein_lans_alkup",
             "nakyva": false
         }
     ],
