@@ -88,6 +88,17 @@ TAHOT = [
 ]
 TAHO_SARAKE = "taho"
 
+# Kaavoittaja kirjaa samaan Sheetiin omana tahonaan. Luokitus menee
+# LUOKITUS_SARAKKEESEEN (potentiaali) eikä omaan luokitus_kaav-sarakkeeseen:
+# se on sama tieto jota QGIS-symbolointi jo käyttää. Kommentti ja nimi saavat
+# omat sarakkeensa.
+#   vanhat_nimet: kehitysvaiheen rivit luetaan yhä, ks. docs/kartta.js
+KAAVOITTAJA = {
+    "avain": "kaav",
+    "nimi": "Kaavoittaja",
+    "vanhat_nimet": ["Kaavoittaja (demo)"],
+}
+
 # Sheetin kommenttikentät (pitkä muoto: yksi rivi per taho)
 SHEET_VIR_KENTAT = [LUOKITUS_VIR_SARAKE, KOMMENTTI_VIR_SARAKE, NIMI_VIR_SARAKE]
 
@@ -105,6 +116,14 @@ VIRANOMAIS_SARAKKEET = [
     taho_sarake(kentta, taho["avain"])
     for taho in TAHOT
     for kentta in ("luokitus", "kommentti", "nimi")
+]
+
+# Kaavoittajan kommentti ja nimi. Näitä EI ole PAKOLLISET_SARAKKEET-listassa
+# eli niitä ei viedä GeoJSONiin oletuksena: karttasovellus lukee kaavoittajan
+# kirjaukset Sheetistä, ja GeoPackage on arkisto ja QGIS-toimitus.
+KAAVOITTAJA_SARAKKEET = [
+    taho_sarake("kommentti", KAAVOITTAJA["avain"]),
+    taho_sarake("nimi", KAAVOITTAJA["avain"]),
 ]
 
 KUVA_SARAKKEET = ["kuva1", "kuva2", "kuva3"]
@@ -1338,7 +1357,7 @@ def _rekisteroi_gpkg_funktiot(yhteys):
 
 def lue_kaavoittajan_geojson(polku: Path) -> dict:
     """
-    Lukee karttasovelluksen "Lataa kaavoittajan suositukset" -tiedoston.
+    Lukee karttasovelluksen "Lataa kaavoittajan luokitus" -tiedoston.
     Palauttaa {tunnus: luokitusarvo}.
     """
     try:
@@ -1411,16 +1430,23 @@ def _lue_sheet_csvna(sheets_id: str, valilehti: str):
         return None
 
 
-def hae_viranomaisdata() -> dict:
+def hae_sheet_kirjaukset() -> tuple[dict, dict]:
     """
-    Hakee viranomaisten kommentit Sheetsistä Sheets-API:lla omalla tokenilla,
-    koska Sheet on jaettu lukuoikeudella. Palauttaa {tunnus: {sarake: arvo}}.
+    Hakee Sheetin kirjaukset Sheets-API:lla omalla tokenilla, koska Sheet on
+    jaettu lukuoikeudella.
+
+    Palauttaa (viranomais, kaava):
+      viranomais = {tunnus: {tahokohtainen_sarake: arvo}}
+      kaava      = {tunnus: {"luokitus": .., "kommentti": .., "nimi": ..}}
+
+    Kaavoittaja erotetaan viranomaisista, koska hänen luokituksensa menee
+    LUOKITUS_SARAKKEESEEN eikä tahokohtaiseen sarakkeeseen.
     """
     cfg       = _lue_projekticonfig()
     sheets_id = cfg.get("sheets_id")
     if not sheets_id:
-        print("  Sheets-ID:tä ei ole config.json:issa — viranomaisdataa ei haettu")
-        return {}
+        print("  Sheets-ID:tä ei ole config.json:issa — Sheet-dataa ei haettu")
+        return {}, {}
 
     valilehti = cfg.get("sheets_valilehti") or SHEET_VALILEHTI
 
@@ -1433,7 +1459,7 @@ def hae_viranomaisdata() -> dict:
     if df is None:
         df = _lue_sheet_csvna(sheets_id, valilehti)
     if df is None:
-        return {}
+        return {}, {}
 
     # gviz ei virheile tuntemattomasta sheet-nimestä vaan palauttaa
     # ensimmäisen välilehden. Otsikkotarkistus on siis ainoa suoja väärän
@@ -1442,7 +1468,7 @@ def hae_viranomaisdata() -> dict:
     if puuttuvat:
         print(f"  ⚠ Sheetistä puuttuu sarakkeita: {', '.join(puuttuvat)}")
         print(f"    Löytyi: {', '.join(str(c) for c in df.columns[:6])}")
-        return {}
+        return {}, {}
 
     # gviz palauttaa otsikoiden jälkeen tyhjiä sarakkeita — poimitaan nimellä
     df = df[SHEET_OTSIKOT].fillna("")
@@ -1450,15 +1476,33 @@ def hae_viranomaisdata() -> dict:
     # Sheetissä on yksi rivi per (tunnus, taho); GeoPackageen viedään
     # tahokohtaisiin sarakkeisiin, joten rivit kootaan tunnuksen alle.
     nimi_avaimeksi = {taho["nimi"]: taho["avain"] for taho in TAHOT}
+    kaavoittajan_nimet = {KAAVOITTAJA["nimi"], *KAAVOITTAJA["vanhat_nimet"]}
 
     tulos: dict = {}
+    kaava: dict = {}
     kommentteja = 0
     tuntemattomat: dict = {}
-    for _, rivi in df.iterrows():
+
+    # Vanhalla nimellä kirjatut ensin, nykyiset päälle: jos kohteella on
+    # molemmat rivit, nykyinen voittaa.
+    def jarjestys(parit):
+        nimi = str(parit[1][TAHO_SARAKE]).strip()
+        return 1 if nimi == KAAVOITTAJA["nimi"] else 0
+
+    for _, rivi in sorted(df.iterrows(), key=jarjestys):
         tunnus = _normalisoi_tunnus(rivi[TUNNUS_SARAKE])
         if not tunnus:
             continue
         taho_nimi = str(rivi[TAHO_SARAKE]).strip()
+
+        if taho_nimi in kaavoittajan_nimet:
+            kaava[tunnus] = {
+                kentta: str(rivi[sheet_sarake]).strip()
+                for kentta, sheet_sarake in zip(("luokitus", "kommentti", "nimi"),
+                                                SHEET_VIR_KENTAT)
+            }
+            continue
+
         avain = nimi_avaimeksi.get(taho_nimi)
         if not avain:
             # Tuntematon taho ohitetaan: tieto ei kuulu millekään sarakkeelle
@@ -1471,15 +1515,18 @@ def hae_viranomaisdata() -> dict:
             kohde[taho_sarake(kentta, avain)] = str(rivi[sheet_sarake]).strip()
         kommentteja += 1
 
+    sallitut = [t["nimi"] for t in TAHOT] + [KAAVOITTAJA["nimi"]]
     for nimi, maara in tuntemattomat.items():
         print(f"  ⚠ Ohitettu {maara} riviä tuntemattomalla taholla: {nimi!r}")
-        print(f"    Sallitut: {', '.join(t['nimi'] for t in TAHOT)}")
-    print(f"  Sheetsistä: {kommentteja} kommenttia {len(tulos)} kohteelle")
-    return tulos
+        print(f"    Sallitut: {', '.join(sallitut)}")
+    print(f"  Sheetsistä: {kommentteja} viranomaiskommenttia {len(tulos)} kohteelle")
+    print(f"              {len(kaava)} kaavoittajan luokitusta")
+    return tulos, kaava
 
 
 def paivita_geopackage(gpkg_polku: Path, layer_nimi: str,
-                       kaava: dict, viranomais: dict) -> dict:
+                       kaava: dict, viranomais: dict,
+                       kaava_lisa: dict | None = None) -> dict:
     """
     Päivittää luokitukset GeoPackageen SQLitellä paikan päällä.
 
@@ -1487,8 +1534,13 @@ def paivita_geopackage(gpkg_polku: Path, layer_nimi: str,
     pudottaisi samaan GeoPackageen tallennetut QGIS-tyylit (layer_styles) ja
     muut tasot. ALTER TABLE + UPDATE koskee vain haluttuja sarakkeita.
 
-    Palauttaa tilastot {kaava_ok, vir_ok, puuttuvat, lisatyt_sarakkeet}.
+    kaava      = {tunnus: luokitusarvo}                → LUOKITUS_SARAKE
+    kaava_lisa = {tunnus: {kommentti_kaav, nimi_kaav}}  → omat sarakkeensa
+
+    Palauttaa tilastot {kaava_ok, kaava_lisa_ok, vir_ok, puuttuvat,
+    lisatyt_sarakkeet}.
     """
+    kaava_lisa = kaava_lisa or {}
     import sqlite3
 
     yhteys = sqlite3.connect(str(gpkg_polku))
@@ -1509,7 +1561,7 @@ def paivita_geopackage(gpkg_polku: Path, layer_nimi: str,
 
         # Puuttuvat sarakkeet lisätään tyhjinä
         lisatyt = []
-        for sarake in [LUOKITUS_SARAKE] + VIRANOMAIS_SARAKKEET:
+        for sarake in [LUOKITUS_SARAKE] + VIRANOMAIS_SARAKKEET + KAAVOITTAJA_SARAKKEET:
             if sarake not in sarakkeet:
                 kursori.execute(f'ALTER TABLE "{layer_nimi}" ADD COLUMN "{sarake}" TEXT')
                 lisatyt.append(sarake)
@@ -1525,7 +1577,7 @@ def paivita_geopackage(gpkg_polku: Path, layer_nimi: str,
             if normi:
                 rowid_per_tunnus.setdefault(normi, []).append(rowid)
 
-        kaava_ok = vir_ok = 0
+        kaava_ok = kaava_lisa_ok = vir_ok = 0
         puuttuvat = []
 
         for tunnus, arvo in kaava.items():
@@ -1538,6 +1590,18 @@ def paivita_geopackage(gpkg_polku: Path, layer_nimi: str,
                     f'UPDATE "{layer_nimi}" SET "{LUOKITUS_SARAKE}" = ? WHERE rowid = ?',
                     (arvo, rowid))
             kaava_ok += 1
+
+        for tunnus, arvot in kaava_lisa.items():
+            rowidit = rowid_per_tunnus.get(tunnus)
+            if not rowidit:
+                puuttuvat.append(tunnus)
+                continue
+            asetukset = ", ".join(f'"{s}" = ?' for s in KAAVOITTAJA_SARAKKEET)
+            for rowid in rowidit:
+                kursori.execute(
+                    f'UPDATE "{layer_nimi}" SET {asetukset} WHERE rowid = ?',
+                    [arvot.get(s, "") for s in KAAVOITTAJA_SARAKKEET] + [rowid])
+            kaava_lisa_ok += 1
 
         for tunnus, arvot in viranomais.items():
             rowidit = rowid_per_tunnus.get(tunnus)
@@ -1557,6 +1621,7 @@ def paivita_geopackage(gpkg_polku: Path, layer_nimi: str,
 
     return {
         "kaava_ok": kaava_ok,
+        "kaava_lisa_ok": kaava_lisa_ok,
         "vir_ok": vir_ok,
         "puuttuvat": sorted(set(puuttuvat)),
         "lisatyt_sarakkeet": lisatyt,
@@ -1570,11 +1635,17 @@ def tila3_paivita_luokitukset(gpkg_polku: Path, layer_nimi: str) -> Path | None:
     """
     print("\n--- Tila 3: Päivitä luokitukset GeoPackageen ---")
 
-    # 1) Kaavoittajan GeoJSON (valinnainen)
-    kaava = {}
+    # 1) Kaavoittajan GeoJSON (valinnainen täydennys)
+    #
+    # Kaavoittaja tallentaa nykyään suoraan Sheetiin, joten tämä tiedosto ei
+    # ole enää pääasiallinen lähde. Se kannattaa antaa silti: ladattu GeoJSON
+    # sisältää myös Vastuumuseon pohjasta peritut luokat niille kohteille
+    # joista kaavoittaja ei ole erikseen kirjannut mitään.
+    kaava_geojson = {}
     syote = input(
-        "\nKaavoittajan luokitus-GeoJSON (karttasovelluksen lataama tiedosto,\n"
-        "Enter = ohita ja päivitä vain viranomaisdata):\n> "
+        "\nKaavoittajan luokitus-GeoJSON (karttasovelluksen lataama tiedosto;\n"
+        "täydentää Sheetiä kohteilla joista ei ole omaa kirjausta.\n"
+        "Enter = ohita):\n> "
     ).strip().strip('"')
     if syote:
         polku = Path(syote)
@@ -1583,17 +1654,37 @@ def tila3_paivita_luokitukset(gpkg_polku: Path, layer_nimi: str) -> Path | None:
             if input("  Jatketaanko ilman sitä? (k/e): ").strip().lower() != "k":
                 return None
         else:
-            kaava = lue_kaavoittajan_geojson(polku)
+            kaava_geojson = lue_kaavoittajan_geojson(polku)
 
-    # 2) Viranomaisdata Sheetsistä
+    # 2) Sheetin kirjaukset
     print()
-    viranomais = hae_viranomaisdata()
+    viranomais, kaava_sheet = hae_sheet_kirjaukset()
+
+    # 3) Kaavoittajan luokitus: Sheet on elävä lähde ja voittaa, GeoJSON
+    #    täyttää aukot. Ristiriidat raportoidaan — vanha lataus ei saa
+    #    hiljaa kumota Sheetiin sen jälkeen tehtyä työtä.
+    kaava = dict(kaava_geojson)
+    kaava_lisa = {}
+    ristiriidat = 0
+    for tunnus, rivi in kaava_sheet.items():
+        if tunnus in kaava_geojson and kaava_geojson[tunnus] != rivi["luokitus"]:
+            ristiriidat += 1
+        kaava[tunnus] = rivi["luokitus"]
+        kaava_lisa[tunnus] = {
+            taho_sarake("kommentti", KAAVOITTAJA["avain"]): rivi["kommentti"],
+            taho_sarake("nimi", KAAVOITTAJA["avain"]):      rivi["nimi"],
+        }
+    if ristiriidat:
+        print(f"  {ristiriidat} kohteessa GeoJSON ja Sheet eri mieltä — Sheet voittaa")
+    if kaava_geojson:
+        vain_geojson = len(set(kaava_geojson) - set(kaava_sheet))
+        print(f"  GeoJSONista täydennetty {vain_geojson} kohdetta ilman omaa kirjausta")
 
     if not kaava and not viranomais:
         print("\n  Ei päivitettävää dataa kummastakaan lähteestä.")
         return None
 
-    # 3) Kohdetiedosto
+    # 4) Kohdetiedosto
     print("\nTallennus:")
     print("  1 = Päälle (alkuperäinen GeoPackage)")
     print("  2 = Uudella nimellä (kopio)")
@@ -1617,16 +1708,17 @@ def tila3_paivita_luokitukset(gpkg_polku: Path, layer_nimi: str) -> Path | None:
         print("  Virheellinen valinta — ei tallennettu.")
         return None
 
-    # 4) Päivitys
+    # 5) Päivitys
     print()
     try:
-        tilastot = paivita_geopackage(kohde, layer_nimi, kaava, viranomais)
+        tilastot = paivita_geopackage(kohde, layer_nimi, kaava, viranomais, kaava_lisa)
     except Exception as e:
         print(f"  VIRHE: päivitys epäonnistui: {e}")
         return None
 
     print(f"\n  Päivitetty: {kohde}")
     print(f"    Kaavoittajan luokituksia:   {tilastot['kaava_ok']}")
+    print(f"    Kaavoittajan kommentteja:   {tilastot['kaava_lisa_ok']}")
     print(f"    Viranomaiskommentteja:      {tilastot['vir_ok']}")
     if tilastot["puuttuvat"]:
         naytettavat = ", ".join(tilastot["puuttuvat"][:10])
@@ -1635,7 +1727,7 @@ def tila3_paivita_luokitukset(gpkg_polku: Path, layer_nimi: str) -> Path | None:
               f"  ({naytettavat}{f' ... +{loput}' if loput > 0 else ''})")
         print("      Yleisin syy: väärä projekti tai vanhentunut GeoPackage.")
 
-    # 5) kohteet.gpkg projektikansioon
+    # 6) kohteet.gpkg projektikansioon
     if input("\nViedäänkö myös kohteet.gpkg projektikansioon? (k/e): ").strip().lower() == "k":
         try:
             DATA_POLKU.mkdir(parents=True, exist_ok=True)

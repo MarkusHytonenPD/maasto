@@ -3,6 +3,8 @@ Regressiotesti tilalle 3 — luokitusten päivitys GeoPackageen.
 
 Kattaa:
   • kaavoittajan luokitus-GeoJSONin luku (karttasovelluksen lataama tiedosto)
+  • kaavoittajan Sheet-kirjaus: luokitus potentiaaliin, kommentti ja nimi
+    omiin sarakkeisiinsa, ja Sheet voittaa ladatun GeoJSONin
   • viranomaissarakkeiden lisäys ja arvojen päivitys SQLitellä
   • KRIITTINEN: QGIS-tyylit (layer_styles) ja muut tasot säilyvät päivityksessä
   • GeoPackagen RTree-triggerien ST_*-funktiot (ilman niitä UPDATE kaatuu)
@@ -164,7 +166,7 @@ def main():
     ok("puuttuvat tunnukset raportoitu",
        tilastot["puuttuvat"] == ["EI_OLE_8888", "EI_OLE_9999"], tilastot["puuttuvat"])
     ok("viranomaissarakkeet lisättiin",
-       tilastot["lisatyt_sarakkeet"] == P.VIRANOMAIS_SARAKKEET,
+       tilastot["lisatyt_sarakkeet"] == P.VIRANOMAIS_SARAKKEET + P.KAAVOITTAJA_SARAKKEET,
        tilastot["lisatyt_sarakkeet"])
 
     ok("KRIITTINEN: layer_styles säilyi", "layer_styles" in _taulut(gpkg))
@@ -214,7 +216,7 @@ def main():
 
     # ── 5. Tila 3 -kulku: tallennus uudella nimellä ───────────────
     print("\n5. tila3_paivita_luokitukset — tallennus uudella nimellä")
-    P.hae_viranomaisdata = lambda: viranomais   # ei verkkoa
+    P.hae_sheet_kirjaukset = lambda: (viranomais, {})   # ei verkkoa
 
     alkuperainen = _luo_gpkg(gdf, "uusinimi.gpkg")
     koko_ennen = alkuperainen.stat().st_size
@@ -269,12 +271,58 @@ def main():
 
     # ── 8. Ei dataa kummastakaan ──────────────────────────────────
     print("\n8. Ei dataa kummastakaan lähteestä")
-    P.hae_viranomaisdata = lambda: {}
+    P.hae_sheet_kirjaukset = lambda: ({}, {})
     tyhja = _luo_gpkg(gdf, "tyhja.gpkg")
     _syotteet("")
     ok("palauttaa None", P.tila3_paivita_luokitukset(tyhja, "ku") is None)
     ok("GeoPackageen ei koskettu",
        "luokitus_lvv" not in gpd.read_file(tyhja, layer="ku").columns)
+
+    # ── 9. Kaavoittajan Sheet-kirjaus ─────────────────────────────
+    print("\n9. Kaavoittajan kirjaus Sheetistä voittaa GeoJSONin")
+    t0, t1 = tunnukset[0], tunnukset[1]
+    kaava_sheet = {
+        t0: {"luokitus": "kumoutuva_mk_suojelukohde",
+             "kommentti": "Kumoutuu maakuntakaavasta", "nimi": "Kaavoittaja Testi"},
+        t1: {"luokitus": "lisatietoja", "kommentti": "", "nimi": ""},
+    }
+    P.hae_sheet_kirjaukset = lambda: ({}, kaava_sheet)
+
+    kohde9 = _luo_gpkg(gdf, "kaavoittaja.gpkg")
+    # GeoJSON antaa t0:lle eri arvon — Sheetin pitää voittaa
+    _syotteet(str(kaava_polku), "1", "e")
+    tulos9 = P.tila3_paivita_luokitukset(kohde9, "ku")
+    ok("päivitys onnistui", tulos9 is not None)
+
+    u9 = gpd.read_file(kohde9, layer="ku")
+    rivi0 = u9[u9["tunnus"].astype(str) == t0].iloc[0]
+    ok("Sheetin luokitus voitti GeoJSONin",
+       rivi0["potentiaali"] == "kumoutuva_mk_suojelukohde", rivi0["potentiaali"])
+    ok("kommentti omaan sarakkeeseen",
+       rivi0["kommentti_kaav"] == "Kumoutuu maakuntakaavasta", rivi0["kommentti_kaav"])
+    ok("nimi omaan sarakkeeseen",
+       rivi0["nimi_kaav"] == "Kaavoittaja Testi", rivi0["nimi_kaav"])
+    rivi1 = u9[u9["tunnus"].astype(str) == t1].iloc[0]
+    ok("toinenkin kirjaus meni läpi", rivi1["potentiaali"] == "lisatietoja",
+       rivi1["potentiaali"])
+    ok("kaavoittajan luokitus EI mene luokitus_kaav-sarakkeeseen",
+       "luokitus_kaav" not in u9.columns, list(u9.columns))
+    # GeoJSONissa on kaikki tunnukset, Sheetissä kaksi → loput GeoJSONista
+    # sellaisenaan (myös tyhjät ja "ei arvoja", jotka ovat aineiston omia)
+    # data = se GeoJSON joka kirjoitettiin kaava_polkuun (5 arvoa muutettu)
+    geojson_arvot = {
+        str(f["properties"]["tunnus"]): str(f["properties"]["potentiaali"])
+        for f in data["features"] if f["properties"].get("tunnus") is not None
+    }
+    muut = u9[~u9["tunnus"].astype(str).isin([t0, t1])]
+    erot = [(r["tunnus"], r["potentiaali"], geojson_arvot.get(str(r["tunnus"])))
+            for _, r in muut.iterrows()
+            if str(r["tunnus"]) in geojson_arvot
+            and str(r["potentiaali"] or "") != geojson_arvot[str(r["tunnus"])]]
+    ok("GeoJSON täydensi kohteet joista ei omaa kirjausta", not erot, erot[:3])
+    ok("kaavoittajan kommenttisarake jäi tyhjäksi ilman Sheet-kirjausta",
+       all(pd.isna(v) or str(v).strip() == "" for v in muut["kommentti_kaav"]),
+       list(muut["kommentti_kaav"])[:3])
 
     builtins.input = oikea_input
     return 0 if all(tulokset) else 1

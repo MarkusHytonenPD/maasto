@@ -42,8 +42,9 @@ Pipeline hoitaa julkaisun itse: se commitoi ja pushaa tulokset.
 tarvitse mitään asennettua — pelkkä linkki riittää. Viranomainen ei tarvitse
 Google-tiliä: kommentti tallentuu Sheetiin Apps Script -endpointin kautta.
 
-**Luokitukset palaavat GeoPackageen tilassa 3.** Kaavoittajan luokitukset
-kulkevat ladattuna GeoJSON-tiedostona, viranomaisten kommentit haetaan Sheetsistä.
+**Luokitukset palaavat GeoPackageen tilassa 3.** Sekä kaavoittajan että
+viranomaisten kirjaukset haetaan Sheetsistä. Ladattu kaavoittajan GeoJSON on
+vapaaehtoinen täydennys niille kohteille joista ei ole omaa kirjausta.
 
 ---
 
@@ -159,7 +160,7 @@ näkee ne. Tila ei kysy kuvakansiota, hakuetäisyyksiä eikä GPX-tiedostoja.
 
 | Kysymys | Selitys |
 |---|---|
-| **Kaavoittajan luokitus-GeoJSON** | Kartan **Lataa kaavoittajan luokitus** -napin tuottama tiedosto (`kaavoittajan_luokitus_[projekti]_[pvm].geojson`, yleensä Lataukset-kansiossa). **Enter ohittaa** — silloin päivitetään vain viranomaisdata. |
+| **Kaavoittajan luokitus-GeoJSON** | Kartan **Lataa kaavoittajan luokitus** -napin tuottama tiedosto (`kaavoittajan_luokitus_[projekti]_[pvm].geojson`, yleensä Lataukset-kansiossa). **Enter ohittaa** — silloin luokitukset tulevat pelkästään Sheetistä. Tiedosto täydentää kohteet joista ei ole omaa Sheet-kirjausta; ristiriidassa Sheet voittaa. |
 | **Tallennus** | `1` = päälle, `2` = uudella nimellä (kopio, oletus `[nimi]_paivitetty.gpkg`). |
 | **Viedäänkö myös kohteet.gpkg projektikansioon?** | Kopio `projektit/[projekti]/data/kohteet.gpkg`:hen. |
 | **Viedäänkö kohteet.geojson ja pushataanko?** | Päivittää kartan näyttämään yhdistetyn datan. |
@@ -179,6 +180,7 @@ tunnukset eivät löytyneet GeoPackagesta:
 ```
   Päivitetty: /polku/ky_ita.gpkg
     Kaavoittajan luokituksia:   61
+    Kaavoittajan kommentteja:   23
     Viranomaiskommentteja:       4
     ⚠ Tunnuksia ei löytynyt GeoPackagesta: 2  (EI_OLE_8888, EI_OLE_9999)
       Yleisin syy: väärä projekti tai vanhentunut GeoPackage.

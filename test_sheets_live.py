@@ -9,7 +9,7 @@ Siksi testi ei käynnisty vahingossa: tarvitset --live-lipun.
 
 Kattaa:
   • luo_projekti_sheet: välilehden nimi, otsikkorivi, oikeudet, config.json
-  • hae_viranomaisdata: julkinen CSV-haku ilman autentikointia
+  • hae_sheet_kirjaukset: julkinen CSV-haku ilman autentikointia
   • skandit, lainausmerkit ja rivinvaihdot Sheetsin ja pipelinen välillä
   • gviz:n ylimääräiset tyhjät sarakkeet
   • otsikkotarkistus (ainoa suoja väärän välilehden lukemiselta)
@@ -112,7 +112,7 @@ def main():
             spreadsheetId=sheets_id, range=f"{P.SHEET_VALILEHTI}!A2",
             valueInputOption="RAW", body={"values": RIVIT}).execute()
 
-        data = P.hae_viranomaisdata()
+        data, _kaava = P.hae_sheet_kirjaukset()
         ok("kelvolliset rivit (tyhjä tunnus ohitettu)", set(data) == {"63", "60"},
            sorted(data))
         ok("skandit ja lainausmerkit säilyivät",
@@ -131,7 +131,7 @@ def main():
         cfg["sheets_valilehti"] = "EiOleTätä"
         P._kirjoita_projekticonfig(cfg)
         ok("tuntematon välilehti: haku ei hajoa",
-           set(P.hae_viranomaisdata()) == {"63", "60"})
+           set(P.hae_sheet_kirjaukset()[0]) == {"63", "60"})
         cfg["sheets_valilehti"] = P.SHEET_VALILEHTI
         P._kirjoita_projekticonfig(cfg)
 
@@ -140,7 +140,7 @@ def main():
             valueInputOption="RAW",
             body={"values": [["aivan", "muut", "otsikot", "tässä", "nyt"]]}).execute()
         ok("väärät otsikot → tyhjä tulos, ei väärää dataa",
-           P.hae_viranomaisdata() == {})
+           P.hae_sheet_kirjaukset() == ({}, {}))
 
     finally:
         print("\n4. Siivous")

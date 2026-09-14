@@ -391,6 +391,24 @@ lomakkeella ja samalla `(tunnus, taho)` -avaimella kuin viranomaiset. Työ ei
 siis ole selainkohtaista. Kehitysvaiheen rivit taholla `Kaavoittaja (demo)`
 luetaan yhä; ne voi nimetä Sheetissä uudelleen milloin tahansa.
 
+### Tila 3: mistä luokitukset tulevat
+
+| Lähde | Mihin | Huom |
+|---|---|---|
+| Sheet, taho `Kaavoittaja` | `potentiaali`, `kommentti_kaav`, `nimi_kaav` | elävä lähde, voittaa |
+| Sheet, kolme viranomaistahoa | `luokitus_*`, `kommentti_*`, `nimi_*` | yksi rivi per (tunnus, taho) |
+| Ladattu kaavoittajan GeoJSON | `potentiaali` | täydentää vain kohteet joista ei ole omaa Sheet-kirjausta |
+
+Kaavoittajan luokitus menee `potentiaali`-sarakkeeseen eikä omaan
+`luokitus_kaav`-sarakkeeseen: se on sama tieto jota QGIS-symbolointi jo
+käyttää. `kommentti_kaav` ja `nimi_kaav` jäävät GeoPackageen eikä niitä viedä
+GeoJSONiin oletuksena — kartta lukee kaavoittajan kirjaukset Sheetistä.
+
+Ladattu GeoJSON kannattaa antaa silti: se sisältää myös Vastuumuseon pohjasta
+peritut luokat niille kohteille joista kaavoittaja ei ole erikseen kirjannut
+mitään. Jos GeoJSON ja Sheet ovat eri mieltä, Sheet voittaa ja ristiriitojen
+määrä raportoidaan — vanha lataus ei saa hiljaa kumota sen jälkeen tehtyä työtä.
+
 ### Tila 3 ja QGIS-tyylit
 
 Luokitusten päivitys GeoPackageen tehdään SQLitellä paikan päällä, ei
