@@ -893,8 +893,9 @@ const SELITE_SADE = 6;
 
 /**
  * Selitteen merkki piirretään samalla funktiolla kuin karttasymboli, jotta
- * kuviot vastaavat toisiaan. Luokkarivit näytetään aina täytettyinä (= oman
- * kirjauksen asu); alaosan ohut rengas näyttää eron pohja-arvoon.
+ * kuviot vastaavat toisiaan. Merkit näytetään aina oman kirjauksen asussa
+ * (täytettyinä, paksulla viivalla) — pohja-arvon ohuempi asu on kartalla
+ * ohimenevä tila, ei oma luokkansa.
  */
 function selitysMerkki(lk) {
   return symboliSvg({
@@ -920,13 +921,10 @@ new SelitysControl({ position: "bottomleft" }).addTo(map);
 function paivitaSelitys() {
   if (!selitysEl) return;
   const maarat = new Map(LUOKAT.map(lk => [lk.arvo, 0]));
-  let pohjalla = 0;
 
   (geojsonData ? geojsonData.features : []).forEach(f => {
-    const { arvot, oma } = nykyinenKanta(f.properties);
-    const arvo = normalisoiLuokka(arvot[LUOKITUS_VIR]);
+    const arvo = normalisoiLuokka(nykyinenKanta(f.properties).arvot[LUOKITUS_VIR]);
     maarat.set(arvo, (maarat.get(arvo) || 0) + 1);
-    if (!oma) pohjalla++;
   });
 
   // Tyhjä arvo esiintyy vain viranomaisnäkymissä (ei vielä kommentoinut).
@@ -945,14 +943,7 @@ function paivitaSelitys() {
       </li>`;
   }).join("");
 
-  const alaosa = aktiivinen_nakyma === KAAVOITTAJA.avain
-    ? `<p class="selitys-alaosa">
-         ${symboliSvg({muoto: "rengas", vari: "#555555", viiva: 1.2,
-                       katko: "", tayttö: false}, 16, SELITE_SADE)}
-         ${pohjalla} kohdetta vielä Vastuumuseon pohjalla</p>`
-    : "";
-
-  selitysEl.innerHTML = `<ul class="selitys-lista">${rivit}</ul>${alaosa}`;
+  selitysEl.innerHTML = `<ul class="selitys-lista">${rivit}</ul>`;
 }
 
 // ═══════════════════════════════════════════════════════════════

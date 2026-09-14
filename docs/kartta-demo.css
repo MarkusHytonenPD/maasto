@@ -251,13 +251,7 @@ body { font-family: sans-serif; }
 .selitys-maara { font-weight: 700; color: #222; font-variant-numeric: tabular-nums; }
 /* Merkit piirretään SVG:nä kartta-demo.js:ssä (symboliSvg) — CSS:n
    dashed-reunus ei anna katkon tiheyttä. */
-.selitys-lista svg, .selitys-alaosa svg { flex: none; display: block; }
-.selitys-alaosa {
-  display: flex; align-items: center; gap: 6px;
-  margin-top: 5px; padding-top: 5px;
-  border-top: 1px solid #eee;
-  color: #555;
-}
+.selitys-lista svg { flex: none; display: block; }
 
 /* ── Museon pohja-arvon merkintä popupissa ────────────── */
 .pu-pohja {

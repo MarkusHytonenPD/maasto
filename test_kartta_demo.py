@@ -21,7 +21,7 @@ Kattaa demoversion erot tuotantoon:
   • kaavoittajan luokitus ja kommentti tallentuvat Sheetiin tahona
     "Kaavoittaja (demo)", ei localStorageen
   • "ei arvoja" ei sekoitu luokkaan "ei_suojeluarvoja"
-  • selitelaatikon määrät ja "museon pohjalla" -laskuri
+  • selitelaatikon luokkarivit ja määrät
   • ladattu GeoJSON sisältää voimassa olevan luokan jokaiselle kohteelle
 
 Ajo:
@@ -353,9 +353,9 @@ def aja():
                 ".selitys-lista li .selitys-maara", "ns => ns.map(n => Number(n.textContent))")
             ok("määrien summa = kohteiden määrä",
                sum(maarat) == len(data["features"]), f"{sum(maarat)} / {len(data['features'])}")
-            pohja_teksti = sivu.locator(".selitys-alaosa").inner_text()
-            odotettu_pohja = len(data["features"]) - 2      # oma_t Sheetistä + juuri tallennetut
-            ok("museon pohjalla -laskuri", str(odotettu_pohja) in pohja_teksti, pohja_teksti.strip())
+            ok("selitteessä ei muuta kuin luokkarivit",
+               sivu.locator(".selitys li").count() == sivu.locator(".selitys-lista li").count()
+               and sivu.locator(".selitys p").count() == 0)
 
             print("\n── Viranomaisnäkymä ──")
             sivu.evaluate("vaihdaNakyma('museo')")
