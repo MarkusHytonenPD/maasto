@@ -47,18 +47,15 @@ body { font-family: sans-serif; }
 .nakyma-control button.toiminto:hover { background: #f0f0f0; }
 
 /* ── Kohdesymbolit ────────────────────────────────────── */
-/* Symbolit ovat täyttämättömiä (väri on ääriviivassa), joten SVG:n oletus
-   pointer-events: visiblePainted rajaisi osumapinnan 3 px levyiseen
-   renkaaseen — keskeltä klikkaus menisi läpi. Näkymätön täyttö ei auta:
-   Chrome ei pidä fill-opacity: 0:aa maalattuna. Valitsin on kirjoitettu
-   samaan muotoon kuin Leafletin oma sääntö, muuten se häviää tarkkuudessa.
+/* Symbolit ovat divIcon-markkereita, joiden sisällä on SVG (kartta.js
+   symboliSvg). Koko 36×36 px:n laatikko ottaa klikkauksen vastaan, myös
+   täyttämättömän renkaan keskeltä — tavallinen HTML-elementti kun on.
 
-   drop-shadow antaa ääriviivalle valkoisen taustareunuksen, jotta symboli
-   erottuu maastokartan viivastosta ja kaavarasterista. Se seuraa viivaa, joten
-   erillistä valkoista ympyrää ei tarvitse piirtää joka kohteelle. Kahdesti,
-   koska yksi kerros jää liian ohueksi. */
-.leaflet-pane > svg path.leaflet-interactive {
-  pointer-events: all;
+   drop-shadow antaa viivalle valkoisen taustareunuksen, jotta symboli
+   erottuu maastokartan viivastosta ja kaavarasterista. Se seuraa viivaa,
+   joten erillistä valkoista ympyrää ei tarvitse piirtää joka kohteelle.
+   Kahdesti, koska yksi kerros jää liian ohueksi. */
+.kohde-symboli {
   filter: drop-shadow(0 0 1.5px #fff) drop-shadow(0 0 1.5px #fff);
 }
 
@@ -213,3 +210,67 @@ body { font-family: sans-serif; }
   position: absolute; top: 14px; right: 20px;
   color: white; font-size: 30px; cursor: pointer; line-height: 1;
 }
+
+/* ── Selitelaatikko ───────────────────────────────────── */
+.selitys {
+  background: white;
+  padding: 6px 9px;
+  border-radius: 4px;
+  box-shadow: 0 1px 5px rgba(0,0,0,.4);
+  font-size: 11px;
+  max-width: 230px;
+}
+.selitys-lista { list-style: none; }
+.selitys-lista li { display: flex; align-items: center; gap: 6px; padding: 1px 0; }
+/* Käyttämätön luokka himmennetään mutta ei piiloteta: asteikon on näyttävä
+   kokonaisena, jotta tietää mitä vaihtoehtoja on. */
+.selitys-lista li.tyhja { opacity: .4; }
+.selitys-teksti { flex: 1; }
+.selitys-maara { font-weight: 700; color: #222; font-variant-numeric: tabular-nums; }
+/* Merkit piirretään SVG:nä kartta.js:ssä (symboliSvg) — CSS:n
+   dashed-reunus ei anna katkon tiheyttä. */
+.selitys-lista svg { flex: none; display: block; }
+
+/* ── Museon pohja-arvon merkintä popupissa ────────────── */
+.pu-pohja {
+  padding: 1px 6px;
+  border-radius: 9px;
+  background: #e6d9c2;
+  color: #6b4e12;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  font-weight: 700;
+}
+.pu-pohja-vihje {
+  margin-bottom: 6px;
+  color: #6b4e12;
+  font-size: 11px;
+  font-style: italic;
+}
+
+/* ── Tiivistys kuudelle luokalle ──────────────────────── */
+/* Kolmella luokalla popup mahtui kerralla näkyviin; kuudella Tallenna-nappi
+   jäi taitteen alle. Kuvat, napit ja tekstikenttä kutistetaan sen verran
+   että lomakkeen loppu näkyy ilman vieritystä. */
+.pu-kuvat img { height: 70px; }
+.pu-napit button { padding-top: 3px; padding-bottom: 3px; }
+.pu-kentta { margin-top: 5px; }
+.pu-kentta textarea { height: 38px; }
+.pu-lomake-footer { margin-top: 7px; }
+
+/* Tallenna-nappi pysyy näkyvissä vaikka popupin sisältö vierisi. Leaflet
+   antaa .leaflet-popup-content:ille max-heightin ja overflow-y:n, joten
+   sticky tarttuu siihen. Ilman tätä pitkä huom-teksti tai kuusi
+   luokituspainiketta työntävät napin taitteen alle eikä kirjaaja huomaa
+   että tallennus on vielä tekemättä. */
+.pu-vir-lomake .pu-lomake-footer {
+  position: sticky;
+  bottom: 0;
+  margin-bottom: -7px;
+  padding: 7px 0;
+  background: #eef2f7;
+  box-shadow: 0 -6px 6px -6px rgba(0,0,0,.25);
+}
+
+/* ── Pistesymbolin luokka ─────────────────────────────── */

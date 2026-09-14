@@ -1,11 +1,11 @@
 """
-Selaintesti luokitusdemolle (docs/kartta-demo.js, docs/kartta-demo.css).
+Selaintesti luokitusmallille (docs/kartta.js, docs/kartta.css).
 
-Ajaa oikean demosivun oikeassa selaimessa (Playwright + Chromium) ja ohjaa
+Ajaa oikean karttasivun oikeassa selaimessa (Playwright + Chromium) ja ohjaa
 kaikki ulkoiset pyynnöt paikallisiin fikstuureihin, joten testi ei kosketa
 MML:ää, Apps Scriptia eikä docs/-kansion tiedostoja.
 
-Kattaa demoversion erot tuotantoon:
+Kattaa luokitusmallin:
   • seitsenportainen asteikko, sama kaavoittajalle ja viranomaiselle
   • tyhjä ei ole valittava luokka — viranomaisella se on "ei kommenttia"
   • Vastuumuseon kanta jokaisen kohteen lähtöarvona
@@ -19,13 +19,13 @@ Kattaa demoversion erot tuotantoon:
     kysymysmerkki; molemmilla täyttö = oma kirjaus
   • symbolit ovat SVG-divIconeita, ja ikoni vaihtuu paikan päällä
   • kaavoittajan luokitus ja kommentti tallentuvat Sheetiin tahona
-    "Kaavoittaja (demo)", ei localStorageen
+    "Kaavoittaja", ei localStorageen
   • "ei arvoja" ei sekoitu luokkaan "ei_suojeluarvoja"
   • selitelaatikon luokkarivit ja määrät
   • ladattu GeoJSON sisältää voimassa olevan luokan jokaiselle kohteelle
 
 Ajo:
-    python3 test_kartta_demo.py
+    python3 test_kartta_luokitus.py
 
 Vaatii:
     pip install playwright && playwright install chromium
@@ -44,7 +44,7 @@ REPO  = Path(__file__).resolve().parent
 DOCS  = REPO / "docs"
 LAHDE = REPO / "projektit" / "heinlansi_rak_kulttuuri" / "data" / "kohteet.geojson"
 
-PROJEKTI = "ZZ_demotesti"
+PROJEKTI = "ZZ_luokitustesti"
 ENDPOINT = "https://apps-script.test/exec"
 
 PUNAINEN = "#e31a1c"
@@ -64,7 +64,7 @@ KATKOT = {
     "kumoutuva_suojelukohde":    "4 4",
 }
 EI_KIRJAUSTA_VARI = "#555555"
-KAAVOITTAJA_TAHO = "Kaavoittaja (demo)"
+KAAVOITTAJA_TAHO = "Kaavoittaja"
 
 LAATTA = base64.b64decode(
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADElEQVR42mP4//8/AAX+Av7czFnnAAAAAElFTkSuQmCC")
@@ -102,12 +102,13 @@ def rakenna_docs(base: Path):
     pages = base / "docs"
     kohde = pages / PROJEKTI
     (kohde / "data").mkdir(parents=True, exist_ok=True)
-    for nimi in ("kartta-demo.js", "kartta-demo.css", "config.js"):
+    for nimi in ("kartta.js", "kartta.css", "config.js"):
         shutil.copy2(DOCS / nimi, pages / nimi)
-    shutil.copy2(DOCS / "heinlansi_demo" / "index.html", kohde / "index.html")
+    # Projektisivu sellaisena kuin pipeline sen luo
+    malli = (DOCS / "heinlansi_rak_kulttuuri" / "index.html").read_text(encoding="utf-8")
     (kohde / "index.html").write_text(
-        (kohde / "index.html").read_text(encoding="utf-8")
-        .replace('window.PROJEKTI = "heinlansi_demo"', f'window.PROJEKTI = "{PROJEKTI}"'),
+        malli.replace('window.PROJEKTI = "heinlansi_rak_kulttuuri"',
+                      f'window.PROJEKTI = "{PROJEKTI}"'),
         encoding="utf-8")
 
     data = json.loads(LAHDE.read_text(encoding="utf-8"))
