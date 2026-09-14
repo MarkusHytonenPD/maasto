@@ -48,8 +48,14 @@ const SHEET_NAME = "Lausunnot";
 const SARAKKEET = ["tunnus", "taho", "luokitus_vir", "kommentti_vir", "nimi_vir"];
 
 // Sallitut tahot. Sama lista kuin kartta.js:n TAHOT — tuntematon taho
-// hylätään, jottei kirjoitusvirhe synnytä näkymätöntä neljättä kommenttia.
-const TAHOT = ["LVV", "Vastuumuseo", "Maakuntaliitto"];
+// hylätään, jottei kirjoitusvirhe synnytä näkymätöntä kommenttia.
+//
+// Kaavoittaja kirjaa oman luokituksensa samaan taulukkoon omana tahonaan.
+// "Kaavoittaja (demo)" on kehitysversion (kartta-demo.js) käyttämä arvo:
+// pipeline ohittaa sen tuntemattomana taholla, joten demorivit eivät päädy
+// GeoPackageen. Poista se listalta kun demo on viety tuotantoon.
+const TAHOT = ["LVV", "Vastuumuseo", "Maakuntaliitto",
+               "Kaavoittaja", "Kaavoittaja (demo)"];
 
 // ── Apufunktiot ────────────────────────────────────────────────────────────
 

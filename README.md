@@ -357,17 +357,39 @@ projekteille; kaikki projektikohtainen on `projektit/[nimi]/config.json`:issa.
 
 ### Luokitusasteikko
 
-Kaavoittaja ja viranomainen käyttävät samaa kolmiportaista asteikkoa. Kartta
+Kaavoittaja ja viranomainen käyttävät samaa seitsenportaista asteikkoa. Kartta
 näyttää selitteet, data säilyy merkkijonoina kuten QGIS-projektissa:
 
-| Kartalla | `potentiaali` / `luokitus_vir` | Väri |
+| Kartalla | `potentiaali` / `luokitus_vir` | Symboli |
 |---|---|---|
-| Ei merkintää | tyhjä tai `ei arvoja` | harmaa |
-| Suositus säilyttämisestä | `paikallinen` | sininen |
-| Suojelukohde | `suojelukohde` | punainen |
+| Ei suojeluarvoja / säilymisen edellytyksiä | `ei_suojeluarvoja` | musta piste |
+| Kumottavalla alueella | `kumottava` | violetti katkoviivarengas |
+| Kumoutuva MK-suojelukohde | `kumoutuva_mk_suojelukohde` | punainen, pitkä katko, paksu |
+| Kumoutuva suojelukohde | `kumoutuva_suojelukohde` | punainen, lyhyt katko |
+| Suositus säilyttämisestä | `paikallinen` | sininen rengas |
+| Suojelukohde | `suojelukohde` | punainen rengas |
+| Tarvitaan lisätietoja | `lisatietoja` | punainen kysymysmerkki |
+
+Väri kertoo suojeluarvon ja katkoviiva kumoutumisen: kaikki suojelukohdeluokat
+ovat punaisia, ja kumoutuvan alueen luokat piirtyvät katkoviivalla. Viivan
+paksuus erottaa Vastuumuseon pohja-arvon (ohut) kaavoittajan omasta
+kirjauksesta (paksu); pisteellä ja kysymysmerkillä sama ero näkyy täyttönä.
+
+Arvo on `ei_suojeluarvoja` alaviivalla, koska aineiston `ei arvoja` tarkoittaa
+tyhjää — samannäköinen arvo luettaisiin tyhjäksi.
 
 Kaavoittajan sarake on `potentiaali` (`pipeline.py`:n `LUOKITUS_SARAKE`);
-karttasivulla se esitetään otsikolla *Kaavoittajan suositus*.
+karttasivulla se esitetään otsikolla *Kaavoittajan luokitus*.
+
+**Vastuumuseon kanta on jokaisen kohteen lähtöarvo.** Museon luokitus
+sellaisenaan; museon kommentoima mutta luokittelematon kohde saa arvon
+`lisatietoja` (kommentit ovat kysymyksiä), ja kokonaan ilman huomioita jäänyt
+kohde arvon `ei_suojeluarvoja`. Kaavoittajan oma kirjaus voittaa pohja-arvon.
+
+**Kaavoittaja tallentaa samaan Sheetiin** omana tahonaan `Kaavoittaja`, samalla
+lomakkeella ja samalla `(tunnus, taho)` -avaimella kuin viranomaiset. Työ ei
+siis ole selainkohtaista. Kehitysvaiheen rivit taholla `Kaavoittaja (demo)`
+luetaan yhä; ne voi nimetä Sheetissä uudelleen milloin tahansa.
 
 ### Tila 3 ja QGIS-tyylit
 

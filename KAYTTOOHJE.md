@@ -42,7 +42,7 @@ Pipeline hoitaa julkaisun itse: se commitoi ja pushaa tulokset.
 tarvitse mitään asennettua — pelkkä linkki riittää. Viranomainen ei tarvitse
 Google-tiliä: kommentti tallentuu Sheetiin Apps Script -endpointin kautta.
 
-**Luokitukset palaavat GeoPackageen tilassa 3.** Kaavoittajan selainluokitukset
+**Luokitukset palaavat GeoPackageen tilassa 3.** Kaavoittajan luokitukset
 kulkevat ladattuna GeoJSON-tiedostona, viranomaisten kommentit haetaan Sheetsistä.
 
 ---
@@ -159,7 +159,7 @@ näkee ne. Tila ei kysy kuvakansiota, hakuetäisyyksiä eikä GPX-tiedostoja.
 
 | Kysymys | Selitys |
 |---|---|
-| **Kaavoittajan luokitus-GeoJSON** | Kartan **Lataa kaavoittajan suositukset** -napin tuottama tiedosto (`kaavoittajan_suositus_[projekti]_[pvm].geojson`, yleensä Lataukset-kansiossa). **Enter ohittaa** — silloin päivitetään vain viranomaisdata. |
+| **Kaavoittajan luokitus-GeoJSON** | Kartan **Lataa kaavoittajan luokitus** -napin tuottama tiedosto (`kaavoittajan_luokitus_[projekti]_[pvm].geojson`, yleensä Lataukset-kansiossa). **Enter ohittaa** — silloin päivitetään vain viranomaisdata. |
 | **Tallennus** | `1` = päälle, `2` = uudella nimellä (kopio, oletus `[nimi]_paivitetty.gpkg`). |
 | **Viedäänkö myös kohteet.gpkg projektikansioon?** | Kopio `projektit/[projekti]/data/kohteet.gpkg`:hen. |
 | **Viedäänkö kohteet.geojson ja pushataanko?** | Päivittää kartan näyttämään yhdistetyn datan. |
@@ -219,47 +219,66 @@ päivitä kovalla latauksella (Ctrl+F5).
 
 ### Mitä sivulla voi tehdä
 
-- **Pohjakartta:** Maastokartta (oletus) tai Taustakartta, oikean yläkulman valitsimesta.
+- **Taustakartat:** Maastokartta (oletus) ja Taustakartta, oikean yläkulman
+  valitsimesta. Ne ovat rasteja eivätkä radionappeja, joten molemmat saa pois —
+  kaavatasoja on helpompi lukea puhtaalta pohjalta.
 - **Kaavatasot ym.:** projektin `config.json`:iin määritellyt WMS-tasot tulevat samaan
   valitsimeen.
-- **Näkymävalitsin** vasemmassa yläkulmassa: *Kaavoittajan suositus* tai
-  *Viranomaisen luokitus*. Valinta määrää sekä pisteiden värityksen että sen,
-  kumpi osio popupissa on muokattavissa.
+- **Näkymävalitsin** vasemmassa yläkulmassa: *Kaavoittajan luokitus* tai yksi
+  kolmesta viranomaistahosta. Valinta määrää sekä symbolien värityksen että sen,
+  kenen kirjausta popupin lomake muokkaa.
+- **Selite** vasemmassa alakulmassa: luokat ja kunkin kohdemäärä nykyisessä
+  näkymässä.
 - **Kohteen popup:** kuvat (klikkaus suurentaa lightboxiin), valitut attribuutit
-  taulukkona (`naytettavat_sarakkeet`), kaavoittajan suositus ja viranomaisen
-  kommentti omina osioinaan.
+  taulukkona (`naytettavat_sarakkeet`), viranomaisten kannat ja oma lomake.
 
 #### Luokitusasteikko
 
-Sama kolmiportainen asteikko molemmilla. Arvot tallentuvat GeoPackageen
-merkkijonoina (`potentiaali`-sarake), joten QGIS-symboloinnit toimivat ennallaan.
+Sama seitsenportainen asteikko kaavoittajalla ja viranomaisilla. Arvot
+tallentuvat GeoPackageen merkkijonoina (`potentiaali`-sarake), joten
+QGIS-symboloinnit toimivat ennallaan.
 
-| Väri | Selite kartalla | Arvo datassa |
+| Symboli | Selite kartalla | Arvo datassa |
 |---|---|---|
-| harmaa | Ei merkintää | tyhjä tai `ei arvoja` |
-| sininen | Suositus säilyttämisestä | `paikallinen` |
-| punainen | Suojelukohde | `suojelukohde` |
+| musta piste | Ei suojeluarvoja / säilymisen edellytyksiä | `ei_suojeluarvoja` |
+| violetti katkorengas | Kumottavalla alueella | `kumottava` |
+| punainen, pitkä katko, paksu | Kumoutuva MK-suojelukohde | `kumoutuva_mk_suojelukohde` |
+| punainen, lyhyt katko | Kumoutuva suojelukohde | `kumoutuva_suojelukohde` |
+| sininen rengas | Suositus säilyttämisestä | `paikallinen` |
+| punainen rengas | Suojelukohde | `suojelukohde` |
+| punainen kysymysmerkki | Tarvitaan lisätietoja | `lisatietoja` |
+
+Symboli kertoo kaksi asiaa erikseen: **väri** suojeluarvon (kaikki
+suojelukohteet punaisia) ja **katkoviiva** kumoutumisen. Lisäksi **ohut viiva**
+tarkoittaa että arvo on yhä Vastuumuseon pohja ja **paksu** että kaavoittaja on
+ottanut kantaa; pisteellä ja kysymysmerkillä sama ero näkyy täyttönä.
+
+Viranomaisnäkymässä myös tyhjä on mahdollinen: harmaa rengas ja selitteessä
+rivi *Ei kommenttia*. Se ei ole valittava luokka.
 
 #### Kaavoittajan näkymä
 
-Popupin *Kaavoittajan suositus* -osiossa on kolme painiketta. Valinta tallentuu
-**vain selaimen localStorageen** (avain `luokitukset_kentta_[projekti]`) ja
-pisteen väri muuttuu heti. Mitään ei lähetetä verkkoon.
+Jokaisella kohteella on lähtöarvo **Vastuumuseon kannasta**: museon luokitus
+sellaisenaan, museon kommentoima mutta luokittelematon kohde *Tarvitaan
+lisätietoja*, ja kokonaan ilman huomioita jäänyt kohde *Ei suojeluarvoja*.
 
-Nappi **Lataa kaavoittajan suositukset** tuottaa tiedoston
-`kaavoittajan_suositus_[projekti]_[pvm].geojson`, jossa muutokset ovat mukana.
-Tämä tiedosto annetaan pipelinelle tilassa 3.
+Popupissa on luokituspainikkeet, perustelukenttä ja **Tallenna**. Tallennus
+menee samaan Sheetiin kuin viranomaisten kommentit, taholla `Kaavoittaja`, joten
+työ ei ole selainkohtaista eikä katoa selaimen tietoja tyhjennettäessä. Pohja-arvo
+on esivalittuna, joten pelkän perustelun tallentaminen vahvistaa museon kannan.
 
-> **Muutokset ovat vain siinä selaimessa jossa ne on tehty.** Tyhjennä
-> selaimen tiedot vasta kun olet ladannut tiedoston ja ajanut tilan 3.
+Nappi **Lataa kaavoittajan luokitus** tuottaa tiedoston
+`kaavoittajan_luokitus_[projekti]_[pvm].geojson`, jossa jokaisella kohteella on
+voimassa oleva luokka — myös museon pohjasta peritty. Tämä tiedosto annetaan
+pipelinelle tilassa 3.
 
 #### Viranomaisen näkymä
 
-Kun *Viranomaisen luokitus* on valittuna, popupin alaosa on lomake: luokitus,
+Kun jokin viranomaistaho on valittuna, popupin alaosa on lomake: luokitus,
 kommentti ja nimi sekä **Tallenna**. Tallennus lähtee Apps Script -endpointiin
 ja päätyy projektin Sheetiin.
 
-**Kolme kommentoijaa.** Näkymävalitsimessa on *Kaavoittajan suositus* ja sen
+**Kolme kommentoijaa.** Näkymävalitsimessa on *Kaavoittajan luokitus* ja sen
 alla kolme tahoa: **LVV**, **Vastuumuseo** ja **Maakuntaliitto**. Valittu taho
 määrää sekä pisteiden värityksen että sen, kenen kommenttia popupin lomake
 muokkaa. Sheetissä on yksi rivi per **(tunnus, taho)**, joten tahot kirjaavat
@@ -270,14 +289,16 @@ aina kaikkien kolmen kannan, jotta muiden näkemykset ovat esillä kirjattaessa.
   muuten kollegan nimi tulisi omaan kenttään ja kommentti tallentuisi väärälle.
 - Kartta hakee Sheetin nykytilan käynnistyessään, joten toinen viranomainen
   näkee jo kirjatut kommentit eikä ylikirjoita niitä vahingossa.
-- Onnistumisesta tulee *Kommentti tallennettu ✓*, virheestä selkeä ilmoitus
-  jossa lukee että kommenttia **ei** tallennettu. Yritä silloin uudelleen.
+- Onnistumisesta tulee *Tallennettu ✓*, virheestä selkeä ilmoitus jossa lukee
+  että kirjausta **ei** tallennettu. Yritä silloin uudelleen.
 
-Kaavoittajan näkymässä viranomaisen osio on vain luku.
+Kaavoittajan kanta näkyy viranomaisnäkymissä yhdellä rivillä vain luettavana,
+ja viranomaisten kannat näkyvät aina myös kaavoittajalle.
 
 > **Tallennus vaatii `apps_script_url`:n** projektin `config.json`:issa. Jos se
-> puuttuu, Tallenna-nappi on pois käytöstä ja lomake kertoo syyn. Kartta, kuvat,
-> attribuutit ja kaavoittajan luokittelu toimivat ilmankin. Endpointin
+> puuttuu, Tallenna-nappi on pois käytöstä ja lomake kertoo syyn — myös
+> kaavoittajalla, jonka luokitus menee samaan Sheetiin. Kartta, kuvat ja
+> attribuutit toimivat ilmankin. Endpointin
 > deployaus: README kohta 4.
 
 ### Uusi projekti

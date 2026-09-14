@@ -1,6 +1,20 @@
 "use strict";
 
 // ═══════════════════════════════════════════════════════════════
+//  Karttasovellus rakennusinventoinnin luokitukseen.
+//
+//  Kaavoittaja ja kolme viranomaistahoa luokittelevat samat kohteet
+//  samalla asteikolla, kukin omana tahonaan. Kaikki kirjaukset menevät
+//  samaan Google Sheetiin avaimella (tunnus, taho), joten kukaan ei
+//  ylikirjoita toisen työtä ja kartta näyttää tuoreimman tilan.
+//
+//  Kaavoittajan lähtöarvo on Vastuumuseon kanta: museon luokitus
+//  sellaisenaan, museon kommentoima mutta luokittelematon kohde
+//  "tarvitaan lisätietoja", ja kokonaan ilman huomioita jäänyt kohde
+//  "ei suojeluarvoja / säilymisen edellytyksiä".
+// ═══════════════════════════════════════════════════════════════
+
+// ═══════════════════════════════════════════════════════════════
 //  CRS — ETRS-TM35FIN (EPSG:3067)
 // ═══════════════════════════════════════════════════════════════
 
@@ -34,31 +48,68 @@ const mmlTausta = L.tileLayer(MML_URL_POHJA, {
   opacity: 1.0, attribution: "&copy; MML",
 });
 
-const layerControl = L.control.layers(
-  { "Maastokartta": mmlMaasto, "Taustakartta": mmlTausta },
-  {},
-  { collapsed: false }
-).addTo(map);
+// Taustakartat ovat rasteja, eivät radionappeja: Leafletin pohjakartta-
+// valinnassa yksi on aina päällä, eikä maakuntakaavaa voisi katsoa
+// puhtaalta pohjalta. Molemmat voi nyt sammuttaa.
+const layerControl = L.control.layers({}, {}, { collapsed: false }).addTo(map);
+layerControl.addOverlay(mmlMaasto, "Maastokartta");
+layerControl.addOverlay(mmlTausta, "Taustakartta");
 
 // ═══════════════════════════════════════════════════════════════
 //  LUOKITUSMALLI
-//  Sama kolmiportainen asteikko kaavoittajalle ja viranomaiselle.
+//  Kuusiportainen asteikko, sama kaavoittajalle ja viranomaisille.
 //  arvo = se merkkijono joka on GeoPackagessa ja Sheetsissä.
+//
+//  HUOM arvoista: "ei_suojeluarvoja" on alaviivalla, koska aineistossa
+//  esiintyvä "ei arvoja" tarkoittaa tyhjää (ks. TYHJAT) — samannäköinen
+//  arvo luettaisiin luokaksi "Ei merkintää".
 // ═══════════════════════════════════════════════════════════════
 
+// Järjestys kulkee suojeluarvon mukaan; "tarvitaan lisätietoja" on
+// viimeisenä, koska se on keskeneräisyyden merkintä eikä asteikon askel.
+//
+// Symboliikka kantaa kaksi tietoa erikseen:
+//   vari  — suojeluarvo. Kaikki suojelukohteet ovat punaisia riippumatta
+//           siitä kumoutuvatko ne.
+//   katko — kumoutuminen. Kumoutuvan alueen luokat piirtyvät katkoviivalla,
+//           muut yhtenäisellä.
+// Kolmiportainen viivanpaksuus (paksuusero lisätään perusviivaan):
+//   MK-suojelukohde  +1,5  pitkä katko, paksuin viiva
+//   yhtenäiset         0
+//   muut katkoviivat  -1   ohuin viiva
+// Näin kaksi punaista kumoutuvaa luokkaa erottuu sekä katkon tiheydellä
+// että paksuudella, ja katkoviiva kevenee kartalla.
+//   muoto — "rengas" (oletus), "piste" tai "kysymys"
 const LUOKAT = [
-  // Harmaa on tummempi kuin popupin harmaat tekstit: ääriviivana vaalea
-  // harmaa hukkui maastokartan viivastoon
-  { arvo: "",             selite: "Ei merkintää",             vari: "#555555" },
-  { arvo: "paikallinen",  selite: "Suositus säilyttämisestä", vari: "#1f78b4" },
-  { arvo: "suojelukohde", selite: "Suojelukohde",             vari: "#e31a1c" },
+  { arvo: "ei_suojeluarvoja",          selite: "Ei suojeluarvoja / säilymisen edellytyksiä",
+    vari: "#000000", muoto: "piste" },
+  { arvo: "kumottava",                 selite: "Kumottavalla alueella",     vari: "#7570b3",
+    katko: "6 5", paksuusero: -1 },
+  { arvo: "kumoutuva_mk_suojelukohde", selite: "Kumoutuva MK-suojelukohde", vari: "#e31a1c",
+    katko: "12 6", paksuusero: 1.5 },
+  { arvo: "kumoutuva_suojelukohde",    selite: "Kumoutuva suojelukohde",    vari: "#e31a1c",
+    katko: "4 4", paksuusero: -1 },
+  { arvo: "paikallinen",               selite: "Suositus säilyttämisestä",  vari: "#1f78b4" },
+  { arvo: "suojelukohde",              selite: "Suojelukohde",              vari: "#e31a1c" },
+  { arvo: "lisatietoja",               selite: "Tarvitaan lisätietoja",     vari: "#e31a1c",
+    muoto: "kysymys" },
 ];
+
+// Tyhjä arvo ei ole enää valittava luokka: kaavoittajalla jokaisella
+// kohteella on Vastuumuseon pohja-arvo, ja viranomaisella tyhjä tarkoittaa
+// "ei ole vielä kommentoinut". Harmaa on tummempi kuin popupin harmaat
+// tekstit: ääriviivana vaalea harmaa hukkui maastokartan viivastoon.
+const EI_KIRJAUSTA = { arvo: "", selite: "Ei kommenttia", vari: "#555555" };
+
+// Vastuumuseon kannan puuttuessa käytettävät lähtöluokat
+const EI_SUOJELUARVOJA = "ei_suojeluarvoja";
+const LISATIETOJA      = "lisatietoja";
 
 // Aineistossa esiintyvä "ei arvoja" tarkoittaa samaa kuin tyhjä.
 const TYHJAT = ["", "ei arvoja", "0", "null", "none", "nan"];
 
 const TUNNUS         = "tunnus";
-const LUOKITUS       = "potentiaali";      // kaavoittajan suositus
+const LUOKITUS       = "potentiaali";      // kaavoittajan luokitus GeoPackagessa
 const KUVAT          = ["kuva1", "kuva2", "kuva3"];
 
 // Sheetin ja endpointin kenttänimet. Sheetissä on yksi rivi per (tunnus, taho).
@@ -66,6 +117,18 @@ const TAHO           = "taho";
 const LUOKITUS_VIR   = "luokitus_vir";
 const KOMMENTTI_VIR  = "kommentti_vir";
 const NIMI_VIR       = "nimi_vir";
+
+// Kaavoittaja tallentaa samaan Sheetiin omana tahonaan.
+//
+// vanhatNimet: kehitysvaiheessa rivit kirjattiin taholla "Kaavoittaja (demo)".
+// Ne luetaan yhä, jotta Sheetin rivien uudelleennimeäminen ei ole kiireellistä
+// eikä kartta näytä välillä tyhjää. Kirjoitus käyttää aina nykyistä nimeä, ja
+// jos kohteella on molemmat rivit, nykyinen voittaa.
+const KAAVOITTAJA = {
+  avain: "kaav",
+  nimi: "Kaavoittaja",
+  vanhatNimet: ["Kaavoittaja (demo)"],
+};
 
 // Kolme kommentoijatahoa, kukin tallentaa ja näkyy kartalla erikseen.
 //   avain = GeoJSONin sarakepääte, nimi = Sheetin taho-arvo ja käyttöliittymä
@@ -75,6 +138,11 @@ const TAHOT = [
   { avain: "liitto", nimi: "Maakuntaliitto" },
 ];
 
+// Kaikki Sheetiin kirjaavat: kaavoittaja + viranomaistahot
+const TALLENTAJAT = [KAAVOITTAJA, ...TAHOT];
+
+const MUSEO = "museo";
+
 /** GeoJSONin tahokohtainen sarake: ("luokitus", "lvv") → "luokitus_lvv". */
 function virSarake(kentta, avain) {
   return `${kentta}_${avain}`;
@@ -82,12 +150,12 @@ function virSarake(kentta, avain) {
 
 // Kaikki tahokohtaiset sarakkeet — nämä esitetään omissa osioissaan, ei
 // attribuuttitaulussa
-const VIR_SARAKKEET = TAHOT.flatMap(taho =>
+const VIR_SARAKKEET = TALLENTAJAT.flatMap(taho =>
   ["luokitus", "kommentti", "nimi"].map(kentta => virSarake(kentta, taho.avain)));
 
 // Sarakkeiden näyttöotsikot. Muut sarakkeet näytetään omalla nimellään.
 const OTSIKOT = {
-  [LUOKITUS]:      "Kaavoittajan suositus",
+  [LUOKITUS]:      "Kaavoittajan luokitus",
   [LUOKITUS_VIR]:  "Luokitus",
   [KOMMENTTI_VIR]: "Kommentti",
   [NIMI_VIR]:      "Nimi",
@@ -112,7 +180,7 @@ function luokkaSelite(arvo) {
 
 function luokkaVari(arvo) {
   const l = luokka(arvo);
-  return l ? l.vari : LUOKAT[0].vari;
+  return l ? l.vari : EI_KIRJAUSTA.vari;
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -123,16 +191,13 @@ let PROJEKTI        = "";
 let projektiConfig  = {};
 let geojsonData     = null;
 let geojsonLayer    = null;
-// "kaavoittaja" tai tahon avain ("lvv" | "museo" | "liitto")
-let aktiivinen_nakyma = "kaavoittaja";
+// KAAVOITTAJA.avain ("kaav") tai tahon avain ("lvv" | "museo" | "liitto")
+let aktiivinen_nakyma = KAAVOITTAJA.avain;
 const markkerit     = {};                  // tunnus → layer
 
-// Kaavoittajan selaimessa tekemät muutokset: { tunnus: arvo }
-let kenttaMuutokset = {};
-
-// Sheetsistä haetut kommentit: { "tunnus|tahoavain": {luokitus_vir, ...} }
+// Sheetsistä haetut kirjaukset: { "tunnus|tahoavain": {luokitus_vir, ...} }
 // Nämä ovat tuoreempia kuin GeoJSONin arvot, jotka päivittyvät vain
-// pipeline-ajossa. Avaimessa on taho, koska kolme tahoa lausuu samasta
+// pipeline-ajossa. Avaimessa on taho, koska useampi taho lausuu samasta
 // kohteesta toisistaan riippumatta.
 let sheetsKommentit = {};
 
@@ -143,46 +208,71 @@ function kommenttiAvain(tunnus, tahoAvain) {
 
 const VIR_TIEDOT_AVAIN = "viranomainen_tiedot";   // oma nimi muistiin
 
-function muutosAvain() {
-  return `luokitukset_kentta_${PROJEKTI}`;
-}
-
-function lataaMuutokset() {
-  try {
-    kenttaMuutokset = JSON.parse(localStorage.getItem(muutosAvain()) || "{}");
-  } catch (e) {
-    console.warn("localStorage-luku epäonnistui:", e);
-    kenttaMuutokset = {};
-  }
-}
-
-function tallennaMuutokset() {
-  try {
-    localStorage.setItem(muutosAvain(), JSON.stringify(kenttaMuutokset));
-  } catch (e) {
-    console.warn("localStorage-tallennus epäonnistui:", e);
-  }
-}
-
-/** Kaavoittajan suositus: selaimen muutos voittaa GeoJSONin arvon. */
-function kenttaLuokitus(props) {
-  const tunnus = String(props[TUNNUS] ?? "");
-  if (Object.prototype.hasOwnProperty.call(kenttaMuutokset, tunnus)) {
-    return kenttaMuutokset[tunnus];
-  }
-  return props[LUOKITUS];
-}
-
-/** Yhden tahon kommentti: Sheetsin tuore rivi voittaa GeoJSONin arvot. */
-function viranomaisArvot(props, tahoAvain) {
+/**
+ * Yhden tallentajan arvot: Sheetsin tuore rivi voittaa GeoJSONin sarakkeet.
+ * Palauttaa null jos kirjausta ei ole kummassakaan — kutsuja päättää mitä
+ * tyhjä tarkoittaa (viranomaisella "ei kommenttia", kaavoittajalla museon
+ * pohja-arvo).
+ */
+function tallentajaKirjaus(props, tahoAvain) {
   const tunnus = String(props[TUNNUS] ?? "");
   const rivi   = sheetsKommentit[kommenttiAvain(tunnus, tahoAvain)];
   if (rivi) return rivi;
-  return {
+
+  const geo = {
     [LUOKITUS_VIR]:  props[virSarake("luokitus", tahoAvain)],
     [KOMMENTTI_VIR]: props[virSarake("kommentti", tahoAvain)],
     [NIMI_VIR]:      props[virSarake("nimi", tahoAvain)],
   };
+  const onSisaltoa = [LUOKITUS_VIR, KOMMENTTI_VIR, NIMI_VIR].some(k => !tyhja(geo[k]));
+  return onSisaltoa ? geo : null;
+}
+
+/** Viranomaisen arvot — puuttuva kirjaus näkyy tyhjänä. */
+function viranomaisArvot(props, tahoAvain) {
+  return tallentajaKirjaus(props, tahoAvain) || {
+    [LUOKITUS_VIR]: "", [KOMMENTTI_VIR]: "", [NIMI_VIR]: "",
+  };
+}
+
+/**
+ * Vastuumuseon kanta on jokaisen kohteen lähtöarvo.
+ *
+ * Luokittelematon kohde ei tarkoita aina samaa: museo on jättänyt osan
+ * kokonaan ilman huomioita, mutta osaan se on kirjoittanut kommentin
+ * luokittelematta ("Arvot?", "Ei voi näillä tiedoilla arvioida."). Nämä ovat
+ * kysymyksiä, joten niiden pohja on "tarvitaan lisätietoja" — muuten museon
+ * esittämä kysymys katoaisi pohja-arvon "ei suojeluarvoja" alle.
+ */
+function museoPohja(props) {
+  const arvot    = viranomaisArvot(props, MUSEO);
+  const luokitus = normalisoiLuokka(arvot[LUOKITUS_VIR]);
+  if (luokitus) return luokitus;
+  return tyhja(arvot[KOMMENTTI_VIR]) ? EI_SUOJELUARVOJA : LISATIETOJA;
+}
+
+/**
+ * Kaavoittajan kanta kohteeseen.
+ *   oma = true  → kaavoittaja on itse kirjannut arvon (Sheet)
+ *   oma = false → arvo on vielä Vastuumuseon pohja, kantaa ei ole otettu
+ *
+ * GeoPackagen vanhaa potentiaali-saraketta ei lueta: tämän kierroksen pohja
+ * otetaan museolta, ja vanhat kenttäluokitukset korvautuvat vasta kun
+ * kaavoittaja on käynyt kohteen läpi.
+ */
+function kaavoittajaKanta(props) {
+  const kirjaus = tallentajaKirjaus(props, KAAVOITTAJA.avain);
+  if (kirjaus) return { arvot: kirjaus, oma: true };
+  return {
+    arvot: { [LUOKITUS_VIR]: museoPohja(props), [KOMMENTTI_VIR]: "", [NIMI_VIR]: "" },
+    oma:   false,
+  };
+}
+
+/** Aktiivisen näkymän arvot yhdellä kutsulla. */
+function nykyinenKanta(props) {
+  if (aktiivinen_nakyma === KAAVOITTAJA.avain) return kaavoittajaKanta(props);
+  return { arvot: viranomaisArvot(props, aktiivinen_nakyma), oma: true };
 }
 
 function appsScriptUrl() {
@@ -203,11 +293,26 @@ async function haeKommentit() {
     }
     sheetsKommentit = {};
     let tuntemattomia = 0;
-    data.rivit.forEach(r => {
+
+    const tahoNimesta = nimi =>
+      TALLENTAJAT.find(x => x.nimi === nimi) || null;
+    const tahoVanhastaNimesta = nimi =>
+      TALLENTAJAT.find(x => (x.vanhatNimet || []).includes(nimi)) || null;
+
+    // Vanhalla nimellä kirjatut ensin, nykyiset päälle: jos kohteella on
+    // molemmat rivit, nykyinen voittaa.
+    const rivit = [...data.rivit].sort((a, b) => {
+      const va = tahoNimesta(String(a[TAHO] ?? "").trim()) ? 1 : 0;
+      const vb = tahoNimesta(String(b[TAHO] ?? "").trim()) ? 1 : 0;
+      return va - vb;
+    });
+
+    rivit.forEach(r => {
       const tunnus = String(r.tunnus ?? "").trim();
-      const taho   = TAHOT.find(x => x.nimi === String(r[TAHO] ?? "").trim());
+      const nimi   = String(r[TAHO] ?? "").trim();
+      const taho   = tahoNimesta(nimi) || tahoVanhastaNimesta(nimi);
       if (!tunnus) return;
-      // Tuntematon taho jätetään pois: muuten kommentti ei näkyisi missään
+      // Tuntematon taho jätetään pois: muuten kirjaus ei näkyisi missään
       // näkymässä mutta olisi silti Sheetissä
       if (!taho) { tuntemattomia++; return; }
       sheetsKommentit[kommenttiAvain(tunnus, taho.avain)] = r;
@@ -215,15 +320,15 @@ async function haeKommentit() {
     if (tuntemattomia) {
       console.warn(`Sheetissä ${tuntemattomia} riviä tuntemattomalla taholla`);
     }
-    console.log(`Viranomaisten kommentteja Sheetsistä: ${Object.keys(sheetsKommentit).length}`);
+    console.log(`Kirjauksia Sheetsistä: ${Object.keys(sheetsKommentit).length}`);
   } catch (e) {
     // Kartta toimii ilman tätäkin — GeoJSONin arvot ovat silloin käytössä
-    console.warn("Kommenttien haku Sheetsistä epäonnistui:", e);
+    console.warn("Kirjausten haku Sheetsistä epäonnistui:", e);
   }
 }
 
 /**
- * Muistaa kommentoijan oman nimen, jottei sitä kirjoiteta uudelleen.
+ * Muistaa kirjaajan oman nimen, jottei sitä kirjoiteta uudelleen.
  * Nimeä EI esitäytetä Sheetistä: silloin toisen tahon kirjaaman nimen voisi
  * tallentaa vahingossa omaksi.
  */
@@ -335,31 +440,98 @@ async function haeData(tiedosto) {
 //  TEEMOITUS
 // ═══════════════════════════════════════════════════════════════
 
-function pisteVari(props) {
-  return aktiivinen_nakyma === "kaavoittaja"
-    ? luokkaVari(kenttaLuokitus(props))
-    : luokkaVari(viranomaisArvot(props, aktiivinen_nakyma)[LUOKITUS_VIR]);
-}
-
 const MARKKERI_SADE = 14;
 
-function markerTyyli(props) {
-  const vari = pisteVari(props);
+const PISTE_SADE = 3.5;
+
+// Kaavoittajan käymättä oleva kohde piirtyy ohuella viivalla, oma kirjaus
+// paksulla. Katkoviiva ei ole käytettävissä tähän (se merkitsee
+// kumoutumista), eikä haalennus: 45 %:n peitolla symboli hukkui
+// maastokartan viivastoon ja kaavarasteriin.
+const POHJAN_VIIVA = 2;
+const OMAN_VIIVA   = 4;
+
+// Ikonin laatikko. Renkaan halkaisija on 28 px, joten reunoille jää tilaa
+// paksuimmalle viivalle ja valkoiselle hehkulle.
+const IKONI_KOKO = 36;
+
+/**
+ * Symbolin määrittely luokasta ja kirjauksen tilasta. Erillään piirrosta,
+ * jotta sama määrittely kelpaa sekä kartalle että selitteeseen.
+ *
+ * muoto  — luokan symboli: rengas, piste tai kysymysmerkki
+ * vari   — suojeluarvo
+ * katko  — kumoutuminen
+ * viiva  — ohut = vielä Vastuumuseon pohja, paksu = kaavoittajan oma kanta
+ * tayttö — pisteellä ja kysymysmerkillä sama ero näkyy täyttönä: ääriviiva
+ *          yksin = pohja-arvo, täytetty = oma kirjaus
+ */
+function symboliSpec(props) {
+  const { arvot, oma } = nykyinenKanta(props);
+  const lk    = luokka(arvot[LUOKITUS_VIR]);
+  const muoto = lk && lk.muoto ? lk.muoto : "rengas";
   return {
-    radius: MARKKERI_SADE,
-    // Väritys ääriviivassa, ei täytössä — kaavarasteri näkyy symbolin läpi
-    color: vari,
-    weight: 3,
-    opacity: 1,
-    // Ei täyttöä lainkaan. Klikattavuus hoidetaan kartta.css:n
-    // pointer-events-säännöllä, ei näkymättömällä täytöllä: Chrome ei pidä
-    // fill-opacity: 0 -täyttöä maalattuna, joten klikkaus menisi läpi.
-    fill: false,
+    muoto,
+    vari:   lk ? lk.vari : EI_KIRJAUSTA.vari,
+    viiva:  (oma ? OMAN_VIIVA : POHJAN_VIIVA) + (lk && lk.paksuusero ? lk.paksuusero : 0),
+    katko:  lk && lk.katko ? lk.katko : "",
+    tayttö: muoto !== "rengas" && oma,
   };
 }
 
+/**
+ * Symboli SVG:nä. Katkoviiva skaalataan säteestä, joten selitteen pienempi
+ * merkki näyttää samalta kuvioilta kuin karttasymboli.
+ *
+ * Rengas on täyttämätön, jotta kaavarasteri näkyy symbolin läpi.
+ */
+function symboliSvg(spec, koko, sade) {
+  const c = koko / 2;
+  const avaa = `<svg width="${koko}" height="${koko}" viewBox="0 0 ${koko} ${koko}" aria-hidden="true">`;
+
+  if (spec.muoto === "kysymys") {
+    const yhteinen = `x="${c}" y="${c}" text-anchor="middle" dominant-baseline="central" ` +
+      `font-family="sans-serif" font-weight="700" font-size="${(sade * 2.3).toFixed(1)}"`;
+    const tyyli = spec.tayttö
+      ? `fill="${spec.vari}"`
+      : `fill="none" stroke="${spec.vari}" stroke-width="1.3"`;
+    return `${avaa}<text ${yhteinen} ${tyyli}>?</text></svg>`;
+  }
+
+  if (spec.muoto === "piste") {
+    // Selitteessä alaraja: suhteessa skaalattu piste kutistuisi
+    // näkymättömäksi, ja selite on muutenkin kaavakuva eikä mittakaavassa.
+    const r = Math.max(2.5, PISTE_SADE * (sade / MARKKERI_SADE));
+    return `${avaa}<circle cx="${c}" cy="${c}" r="${r.toFixed(1)}" ` +
+      `fill="${spec.tayttö ? spec.vari : "none"}" ` +
+      `stroke="${spec.vari}" stroke-width="2" /></svg>`;
+  }
+
+  const suhde = sade / MARKKERI_SADE;
+  const kuvio = spec.katko
+    ? ` stroke-dasharray="${spec.katko.split(" ")
+        .map(x => (Number(x) * suhde).toFixed(1)).join(" ")}"`
+    : "";
+  return `${avaa}<circle cx="${c}" cy="${c}" r="${sade}" fill="none" ` +
+    `stroke="${spec.vari}" stroke-width="${spec.viiva}"${kuvio} /></svg>`;
+}
+
+/**
+ * Symbolit ovat divIcon-markkereita, eivät circleMarkereita: kysymysmerkki
+ * ei ole ympyrä. Ikonin vaihto onnistuu paikan päällä setIcon():lla, joten
+ * luokan symbolin muuttuminen tallennuksessa ei sulje popupia.
+ */
+function luoIkoni(props) {
+  return L.divIcon({
+    html:       symboliSvg(symboliSpec(props), IKONI_KOKO, MARKKERI_SADE),
+    className:  "kohde-symboli",
+    iconSize:   [IKONI_KOKO, IKONI_KOKO],
+    iconAnchor: [IKONI_KOKO / 2, IKONI_KOKO / 2],
+  });
+}
+
 function luoMarker(feature, latlng) {
-  return L.circleMarker(latlng, markerTyyli(feature.properties));
+  return L.marker(latlng, { icon: luoIkoni(feature.properties), keyboard: false });
 }
 
 /**
@@ -398,12 +570,14 @@ function paivitaLayer() {
       });
     },
   }).addTo(map);
+  paivitaSelitys();
 }
 
-/** Päivittää yhden pisteen värin ilman että popup sulkeutuu. */
+/** Päivittää yhden symbolin ilman että popup sulkeutuu. */
 function paivitaMarkkeri(tunnus, props) {
   const layer = markkerit[String(tunnus)];
-  if (layer && layer.setStyle) layer.setStyle(markerTyyli(props));
+  if (layer && layer.setIcon) layer.setIcon(luoIkoni(props));
+  paivitaSelitys();
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -447,37 +621,6 @@ function popupAttribuutit(props) {
   return el;
 }
 
-/** Kaavoittajan luokitusnapit. Muutos tallentuu localStorageen. */
-function popupLuokitusNapit(feature, tunnus) {
-  const props = feature.properties;
-  const el = document.createElement("div");
-  el.className = "pu-napit";
-
-  const napit = LUOKAT.map(lk => {
-    const nappi = document.createElement("button");
-    nappi.type = "button";
-    nappi.textContent = lk.selite;
-    nappi.style.setProperty("--lk-vari", lk.vari);
-    nappi.addEventListener("click", () => {
-      kenttaMuutokset[String(tunnus)] = lk.arvo;
-      tallennaMuutokset();
-      paivitaMarkkeri(tunnus, props);
-      korosta();
-    });
-    el.appendChild(nappi);
-    return { lk, nappi };
-  });
-
-  function korosta() {
-    const nyt = normalisoiLuokka(kenttaLuokitus(props));
-    napit.forEach(({ lk, nappi }) => {
-      nappi.classList.toggle("aktiivinen", lk.arvo === nyt);
-    });
-  }
-  korosta();
-  return el;
-}
-
 function osio(otsikkoteksti, luokkaNimi) {
   const el = document.createElement("div");
   el.className = luokkaNimi;
@@ -488,8 +631,8 @@ function osio(otsikkoteksti, luokkaNimi) {
 }
 
 /**
- * Kaikkien tahojen kommentit vain luettavina. Näytetään aina, myös silloin
- * kun yhtä tahoa muokataan: kommentoijan on nähtävä muiden kannat.
+ * Viranomaistahojen kirjaukset vain luettavina. Näytetään aina, myös silloin
+ * kun yhtä tahoa muokataan: kirjaajan on nähtävä muiden kannat.
  */
 function popupViranomaisetLuku(props, korostettuTaho) {
   const el = osio("Viranomaisten kommentit", "pu-vir");
@@ -502,7 +645,7 @@ function popupViranomaisetLuku(props, korostettuTaho) {
       .filter(x => !tyhja(x)).map(x => esc(x)).join(" — ");
     const korostus = taho.avain === korostettuTaho ? " pu-taho-aktiivinen" : "";
     return `<tr class="pu-taho${korostus}">
-        <td><span class="pu-taho-merkki" style="background:${lk ? lk.vari : LUOKAT[0].vari}"></span>${esc(taho.nimi)}</td>
+        <td><span class="pu-taho-merkki" style="background:${lk ? lk.vari : EI_KIRJAUSTA.vari}"></span>${esc(taho.nimi)}</td>
         <td>${on ? esc(luokkaSelite(arvot[LUOKITUS_VIR])) : '<span class="pu-vir-tyhja">Ei kommenttia</span>'}
             ${lisat ? `<div class="pu-taho-lisa">${lisat}</div>` : ""}</td>
       </tr>`;
@@ -515,9 +658,35 @@ function popupViranomaisetLuku(props, korostettuTaho) {
   return el;
 }
 
+/** Kaavoittajan kanta muiden näkymien popupissa, yhdellä rivillä. */
+function popupKaavoittajaLuku(props) {
+  const { arvot, oma } = kaavoittajaKanta(props);
+  const el = document.createElement("div");
+  el.className = "pu-kaava pu-kaava-luku";
+
+  const otsake = document.createElement("span");
+  otsake.className = "pu-kaava-otsake";
+  otsake.textContent = "Kaavoittajan luokitus:";
+
+  const arvo = document.createElement("span");
+  arvo.className = "pu-lukuarvo";
+  arvo.textContent = luokkaSelite(arvot[LUOKITUS_VIR]);
+
+  el.appendChild(otsake);
+  el.appendChild(arvo);
+  if (!oma) {
+    const merkki = document.createElement("span");
+    merkki.className = "pu-pohja";
+    merkki.textContent = "museon pohja";
+    el.appendChild(merkki);
+  }
+  return el;
+}
 
 // ═══════════════════════════════════════════════════════════════
-//  VIRANOMAISEN LOMAKE
+//  KIRJAUSLOMAKE
+//  Sama lomake kaavoittajalle ja viranomaistaholle: molemmat kirjaavat
+//  samaan Sheetiin, avaimena (tunnus, taho).
 // ═══════════════════════════════════════════════════════════════
 
 function kenttaRivi(nimi, elementti) {
@@ -531,14 +700,32 @@ function kenttaRivi(nimi, elementti) {
 }
 
 /**
- * Yhden tahon muokattava lomake. Tallennus Apps Script -endpointin kautta,
- * joka avaa tai päivittää rivin avaimella (tunnus, taho) — muiden tahojen
- * kommentit eivät siis voi ylikirjoittua.
+ * Yhden tallentajan muokattava lomake. Tallennus Apps Script -endpointin
+ * kautta, joka avaa tai päivittää rivin avaimella (tunnus, taho) — muiden
+ * kirjaukset eivät siis voi ylikirjoittua.
+ *
+ * Kaavoittajalla luokitus on esivalittuna Vastuumuseon pohja-arvoon, joten
+ * pelkän kommentin tallentaminen vahvistaa museon kannan eikä tyhjennä sitä.
  */
-function popupViranomainenLomake(feature, tunnus, taho) {
-  const props = feature.properties;
-  const arvot = viranomaisArvot(props, taho.avain);
-  const el    = osio(`Oma kommentti — ${taho.nimi}`, "pu-vir pu-vir-lomake");
+function popupLomake(feature, tunnus, tallentaja) {
+  const props      = feature.properties;
+  const kaavoittaja = tallentaja.avain === KAAVOITTAJA.avain;
+  const kanta      = kaavoittaja
+    ? kaavoittajaKanta(props)
+    : { arvot: viranomaisArvot(props, tallentaja.avain), oma: true };
+  const arvot      = kanta.arvot;
+
+  const el = osio(
+    kaavoittaja ? "Kaavoittajan luokitus ja kommentti" : `Oma kommentti — ${tallentaja.nimi}`,
+    "pu-vir pu-vir-lomake"
+  );
+
+  if (kaavoittaja && !kanta.oma) {
+    const vihje = document.createElement("p");
+    vihje.className = "pu-pohja-vihje";
+    vihje.textContent = "Luokka on vielä Vastuumuseon pohja — tallennus kirjaa sen omaksi kannaksi.";
+    el.appendChild(vihje);
+  }
 
   // ── Luokituspainikkeet ──
   let valittu = normalisoiLuokka(arvot[LUOKITUS_VIR]);
@@ -566,12 +753,12 @@ function popupViranomainenLomake(feature, tunnus, taho) {
   kommentti.value = tyhja(arvot[KOMMENTTI_VIR]) ? "" : String(arvot[KOMMENTTI_VIR]);
 
   // Nimi omista tiedoista, ei Sheetistä: muuten kollegan nimi tulisi
-  // esitäyttönä omaan kenttään ja kommentti tallentuisi väärälle henkilölle
+  // esitäyttönä omaan kenttään ja kirjaus tallentuisi väärälle henkilölle
   const nimi = document.createElement("input");
   nimi.type  = "text";
   nimi.value = muistetut.nimi;
 
-  el.appendChild(kenttaRivi("Kommentti", kommentti));
+  el.appendChild(kenttaRivi(kaavoittaja ? "Perustelu / kommentti" : "Kommentti", kommentti));
   el.appendChild(kenttaRivi("Nimi", nimi));
 
   // ── Tallenna ──
@@ -588,8 +775,8 @@ function popupViranomainenLomake(feature, tunnus, taho) {
 
   const url = appsScriptUrl();
   if (!url) {
-    // Hiljainen epäonnistuminen olisi pahin vaihtoehto: viranomainen ei
-    // tietäisi ettei kommentti tallentunut minnekään.
+    // Hiljainen epäonnistuminen olisi pahin vaihtoehto: kirjaaja ei
+    // tietäisi ettei mitään tallentunut minnekään.
     tallenna.disabled = true;
     viesti.className  = "pu-lomake-viesti virhe";
     viesti.textContent = "Tallennusta ei ole määritetty (apps_script_url puuttuu config.json:sta)";
@@ -599,7 +786,7 @@ function popupViranomainenLomake(feature, tunnus, taho) {
   tallenna.addEventListener("click", async () => {
     const runko = {
       tunnus:          tunnus,
-      [TAHO]:          taho.nimi,
+      [TAHO]:          tallentaja.nimi,
       [LUOKITUS_VIR]:  valittu,
       [KOMMENTTI_VIR]: kommentti.value.trim(),
       [NIMI_VIR]:      nimi.value.trim(),
@@ -622,9 +809,9 @@ function popupViranomainenLomake(feature, tunnus, taho) {
       if (data.status !== "ok") throw new Error(data.message || "tuntematon virhe");
 
       // Tuore tila muistiin: väri ja lukuosio päivittyvät ilman uudelleenlatausta
-      sheetsKommentit[kommenttiAvain(String(tunnus), taho.avain)] = {
+      sheetsKommentit[kommenttiAvain(String(tunnus), tallentaja.avain)] = {
         tunnus:          String(tunnus),
-        [TAHO]:          taho.nimi,
+        [TAHO]:          tallentaja.nimi,
         [LUOKITUS_VIR]:  runko[LUOKITUS_VIR],
         [KOMMENTTI_VIR]: runko[KOMMENTTI_VIR],
         [NIMI_VIR]:      runko[NIMI_VIR],
@@ -634,10 +821,10 @@ function popupViranomainenLomake(feature, tunnus, taho) {
 
       viesti.className   = "pu-lomake-viesti onnistui";
       viesti.textContent = data.toiminto === "paivitetty"
-        ? "Kommentti päivitetty ✓" : "Kommentti tallennettu ✓";
+        ? "Tallennettu ✓ (päivitetty)" : "Tallennettu ✓";
     } catch (e) {
       viesti.className   = "pu-lomake-viesti virhe";
-      viesti.textContent = `Tallennus epäonnistui: ${e.message}. Kommenttia EI tallennettu.`;
+      viesti.textContent = `Tallennus epäonnistui: ${e.message}. Kirjausta EI tallennettu.`;
     } finally {
       tallenna.disabled = false;
     }
@@ -660,34 +847,22 @@ function luoPopup(feature, layer) {
   const attr = popupAttribuutit(props);
   if (attr) el.appendChild(attr);
 
-  // ── Kaavoittajan suositus ──
-  if (aktiivinen_nakyma === "kaavoittaja") {
-    const kaava = osio("Kaavoittajan suositus", "pu-kaava");
-    kaava.appendChild(popupLuokitusNapit(feature, tunnus));
-    el.appendChild(kaava);
-  } else {
-    // Yhdelle riville: viranomaisnäkymässä pystytila tarvitaan lomakkeelle,
-    // jotta Tallenna-nappi näkyy ilman popupin vierittämistä.
-    const kaava = document.createElement("div");
-    kaava.className = "pu-kaava pu-kaava-luku";
-    const otsake = document.createElement("span");
-    otsake.className = "pu-kaava-otsake";
-    otsake.textContent = "Kaavoittajan suositus:";
-    const arvo = document.createElement("span");
-    arvo.className = "pu-lukuarvo";
-    arvo.textContent = luokkaSelite(kenttaLuokitus(props));
-    kaava.appendChild(otsake);
-    kaava.appendChild(arvo);
-    el.appendChild(kaava);
-  }
+  const kaavoittajanNakyma = aktiivinen_nakyma === KAAVOITTAJA.avain;
+
+  // ── Kaavoittajan kanta ──
+  // Omassa näkymässään muokattavana, muissa yhden rivin lukuarvona.
+  if (!kaavoittajanNakyma) el.appendChild(popupKaavoittajaLuku(props));
 
   // ── Viranomaisten kommentit ──
-  // Kaikkien tahojen kannat näkyvät aina; aktiivisen tahon kommentti on
-  // lisäksi muokattavana omassa lohkossaan.
+  // Kaikkien tahojen kannat näkyvät aina — myös kaavoittajan näkymässä, koska
+  // lopullinen luokka muodostetaan niitä vasten.
   const taho = TAHOT.find(x => x.avain === aktiivinen_nakyma) || null;
   el.appendChild(popupViranomaisetLuku(props, taho ? taho.avain : null));
-  if (taho) {
-    el.appendChild(popupViranomainenLomake(feature, tunnus, taho));
+
+  if (kaavoittajanNakyma) {
+    el.appendChild(popupLomake(feature, tunnus, KAAVOITTAJA));
+  } else if (taho) {
+    el.appendChild(popupLomake(feature, tunnus, taho));
   }
 
   return el;
@@ -701,12 +876,12 @@ const NakymaControl = L.Control.extend({
   onAdd() {
     const div = L.DomUtil.create("div", "nakyma-control leaflet-bar");
     div.innerHTML = `
-      <button data-nakyma="kaavoittaja" class="aktiivinen">Kaavoittajan suositus</button>
+      <button data-nakyma="${esc(KAAVOITTAJA.avain)}" class="aktiivinen">Kaavoittajan luokitus</button>
       <span class="nakyma-otsake">Viranomaisen luokitus</span>
       ${TAHOT.map(taho =>
         `<button data-nakyma="${esc(taho.avain)}" class="nakyma-taho">${esc(taho.nimi)}</button>`
       ).join("")}
-      <button id="lataa-suositukset" class="toiminto">Lataa kaavoittajan suositukset</button>`;
+      <button id="lataa-suositukset" class="toiminto">Lataa kaavoittajan luokitus</button>`;
     L.DomEvent.disableClickPropagation(div);
     div.querySelectorAll("button[data-nakyma]").forEach(nappi => {
       nappi.addEventListener("click", () => vaihdaNakyma(nappi.dataset.nakyma));
@@ -728,7 +903,75 @@ function vaihdaNakyma(nakyma) {
 }
 
 // ═══════════════════════════════════════════════════════════════
-//  LATAA KAAVOITTAJAN SUOSITUKSET
+//  SELITELAATIKKO
+//  Kuusi luokkaa ei ole luettavissa pelkistä väreistä ilman selitettä.
+//  Määrät kertovat samalla missä vaiheessa luokittelukierros on.
+// ═══════════════════════════════════════════════════════════════
+
+let selitysEl = null;
+
+const SELITE_SADE = 6;
+
+/**
+ * Selitteen merkki piirretään samalla funktiolla kuin karttasymboli, jotta
+ * kuviot vastaavat toisiaan. Merkit näytetään aina oman kirjauksen asussa
+ * (täytettyinä, paksulla viivalla) — pohja-arvon ohuempi asu on kartalla
+ * ohimenevä tila, ei oma luokkansa.
+ */
+function selitysMerkki(lk) {
+  return symboliSvg({
+    muoto:  lk.muoto || "rengas",
+    vari:   lk.vari,
+    viiva:  2.5 + (lk.paksuusero || 0),
+    katko:  lk.katko || "",
+    tayttö: true,
+  }, 16, SELITE_SADE);
+}
+
+const SelitysControl = L.Control.extend({
+  onAdd() {
+    const div = L.DomUtil.create("div", "selitys leaflet-bar");
+    L.DomEvent.disableClickPropagation(div);
+    selitysEl = div;
+    paivitaSelitys();
+    return div;
+  },
+});
+new SelitysControl({ position: "bottomleft" }).addTo(map);
+
+function paivitaSelitys() {
+  if (!selitysEl) return;
+  const maarat = new Map(LUOKAT.map(lk => [lk.arvo, 0]));
+
+  (geojsonData ? geojsonData.features : []).forEach(f => {
+    const arvo = normalisoiLuokka(nykyinenKanta(f.properties).arvot[LUOKITUS_VIR]);
+    maarat.set(arvo, (maarat.get(arvo) || 0) + 1);
+  });
+
+  // Tyhjä arvo esiintyy vain viranomaisnäkymissä (ei vielä kommentoinut).
+  // Se ei ole valittava luokka, mutta rivi tarvitaan jotta määrät täsmäävät
+  // kohteiden lukumäärään.
+  const nakyvat = maarat.get(EI_KIRJAUSTA.arvo)
+    ? [...LUOKAT, EI_KIRJAUSTA]
+    : LUOKAT;
+
+  const rivit = nakyvat.map(lk => {
+    const n = maarat.get(lk.arvo) || 0;
+    return `<li${n ? "" : ' class="tyhja"'}>
+        ${selitysMerkki(lk)}
+        <span class="selitys-teksti">${esc(lk.selite)}</span>
+        <span class="selitys-maara">${n}</span>
+      </li>`;
+  }).join("");
+
+  selitysEl.innerHTML = `<ul class="selitys-lista">${rivit}</ul>`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  LATAA KAAVOITTAJAN LUOKITUS
+//  Vie jokaiselle kohteelle voimassa olevan luokan — myös museon pohjasta
+//  perityn — jotta pipelinen tila 3 kirjoittaa GeoPackageen täyden
+//  näkemyksen eikä vain muutettuja kohteita.
 // ═══════════════════════════════════════════════════════════════
 
 function lataaSuositukset() {
@@ -738,17 +981,17 @@ function lataaSuositukset() {
   }
 
   const kopio = JSON.parse(JSON.stringify(geojsonData));
-  let muutettu = 0;
+  let omia = 0;
   kopio.features.forEach(f => {
-    const tunnus = String(f.properties[TUNNUS] ?? "");
-    if (Object.prototype.hasOwnProperty.call(kenttaMuutokset, tunnus)) {
-      f.properties[LUOKITUS] = kenttaMuutokset[tunnus];
-      muutettu++;
-    }
+    const { arvot, oma } = kaavoittajaKanta(f.properties);
+    f.properties[LUOKITUS]                        = arvot[LUOKITUS_VIR];
+    f.properties[virSarake("kommentti", KAAVOITTAJA.avain)] = arvot[KOMMENTTI_VIR] || "";
+    f.properties[virSarake("nimi", KAAVOITTAJA.avain)]      = arvot[NIMI_VIR] || "";
+    if (oma) omia++;
   });
 
   const pvm  = new Date().toISOString().slice(0, 10);
-  const nimi = `kaavoittajan_suositus_${PROJEKTI}_${pvm}.geojson`;
+  const nimi = `kaavoittajan_luokitus_${PROJEKTI}_${pvm}.geojson`;
   const blob = new Blob([JSON.stringify(kopio)], { type: "application/geo+json" });
   const url  = URL.createObjectURL(blob);
 
@@ -760,7 +1003,7 @@ function lataaSuositukset() {
   a.remove();
   URL.revokeObjectURL(url);
 
-  console.log(`Ladattu ${nimi} — ${muutettu} muutettua luokitusta`);
+  console.log(`Ladattu ${nimi} — ${omia}/${kopio.features.length} kaavoittajan omaa kirjausta`);
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -791,8 +1034,6 @@ async function init() {
       '<p style="padding:1em;color:red">Puuttuu URL-parametri: <strong>?projekti=nimi</strong></p>');
     return;
   }
-
-  lataaMuutokset();
 
   try {
     projektiConfig = await haeData("config.json");
@@ -826,8 +1067,8 @@ async function init() {
     layerControl.addOverlay(layer, taso.nimi);
   });
 
-  // Sheetin nykytila ennen ensimmäistä piirtoa, jotta viranomaisnäkymän
-  // värit ja lomakkeen esitäyttö perustuvat tuoreeseen dataan.
+  // Sheetin nykytila ennen ensimmäistä piirtoa: sekä kaavoittajan omat
+  // kirjaukset että Vastuumuseon pohja-arvot tulevat sieltä.
   await haeKommentit();
 
   try {

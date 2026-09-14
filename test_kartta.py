@@ -5,12 +5,15 @@ Ajaa oikean sivun oikeassa selaimessa (Playwright + Chromium) ja ohjaa
 GitHub raw -pyynnöt paikallisiin fikstuureihin, joten testi ei kosketa
 verkkoon eikä muokkaa docs/-kansion tiedostoja.
 
-Kattaa:
-  • pisteiden väritys molemmissa näkymissä (LUOKAT-taulukko)
+Kattaa karttasovelluksen rungon. Luokitusmalli (asteikko, symbolit,
+Vastuumuseon pohja-arvo, kaavoittajan tallennus) on omassa testissään
+test_kartta_luokitus.py.
+
+  • pisteiden väritys kaavoittajan ja viranomaisen näkymissä
   • tunnusotsikot kartalla (aina näkyvät, eivät nappaa klikkauksia)
   • popup: naytettavat_sarakkeet, kuvat, tyhjien kenttien ohitus
-  • kaavoittajan luokituspainikkeet, localStorage, värin päivitys heti
-  • "Lataa kaavoittajan suositukset" -tiedoston sisältö
+  • popup ei jää näkymävalitsimen alle
+  • "Lataa kaavoittajan luokitus" -tiedoston nimi ja kattavuus
   • viranomaisen lomake: esitäyttö, POST-runko, onnistuminen ja virheet
   • Sheetsin tuore data voittaa GeoJSONin arvot
   • kolme tahoa: erilliset kommentit, oma näkymä ja oma tallennus
@@ -315,11 +318,20 @@ def main():
             selain.close()
 
     def varit(sivu):
+        """Symbolien värijakauma. Symbolit ovat divIcon-SVG:itä, joten väri
+        luetaan määrittelystä eikä DOM:n path-elementeistä."""
         return sivu.evaluate("""() => {
           const laske = {};
-          document.querySelectorAll('path.leaflet-interactive').forEach(p => {
-            const v = p.getAttribute('stroke'); laske[v] = (laske[v] || 0) + 1; });
+          geojsonData.features.forEach(f => {
+            const v = symboliSpec(f.properties).vari;
+            laske[v] = (laske[v] || 0) + 1; });
           return laske; }""")
+
+    def vari(sivu, tunnus):
+        return sivu.evaluate("""t => {
+          const f = geojsonData.features.find(
+            x => String(x.properties.tunnus) === t);
+          return symboliSpec(f.properties).vari; }""", str(tunnus))
 
     def avaa(sivu, tunnus):
         """Sulkee edellisen popupin ensin — Leaflet jättää DOM:n hetkeksi."""
@@ -335,7 +347,7 @@ def main():
     print("\n1. Kaavoittajan näkymä, luokitus ja lataus")
 
     def testit1(sivu):
-        maara = sivu.eval_on_selector_all("path.leaflet-interactive", "e => e.length")
+        maara = sivu.eval_on_selector_all(".kohde-symboli", "e => e.length")
         ok("kaikki pisteet piirtyivät", maara == len(piirteet), f"{maara} kpl")
 
         otsikot_kartalla = sivu.eval_on_selector_all(
@@ -350,17 +362,22 @@ def main():
         ok("otsikko on läpinäkyvä eikä nappaa klikkauksia",
            tyyli["tausta"] == "rgba(0, 0, 0, 0)" and tyyli["hiiri"] == "none", tyyli)
 
+        # Fikstuurissa vain T0:lla on Vastuumuseon luokitus (paikallinen);
+        # muilla ei luokitusta eikä kommenttia, joten pohja on ei_suojeluarvoja.
         v = varit(sivu)
-        ok("värit LUOKAT-taulukon mukaan",
-           v.get("#555555", 0) + v.get("#1f78b4", 0) + v.get("#e31a1c", 0) == len(piirteet)
-           and v.get("#1f78b4") == 14 and v.get("#e31a1c") == 8, v)
+        ok("kaavoittajan värit Vastuumuseon pohjasta",
+           v.get("#1f78b4") == 1 and v.get("#000000") == len(piirteet) - 1, v)
 
         ok("näkymävalitsimessa kaavoittaja ja kolme tahoa",
            sivu.eval_on_selector_all(".nakyma-control button[data-nakyma]",
                                      "e => e.map(x => x.textContent)")
-           == ["Kaavoittajan suositus", "LVV", "Vastuumuseo", "Maakuntaliitto"])
+           == ["Kaavoittajan luokitus", "LVV", "Vastuumuseo", "Maakuntaliitto"])
         ok("latausnappi näkyy",
-           "Lataa kaavoittajan suositukset" in sivu.text_content("#lataa-suositukset"))
+           "Lataa kaavoittajan luokitus" in sivu.text_content("#lataa-suositukset"))
+
+        ok("taustakartat ovat rasteja eivätkä radionappeja",
+           sivu.eval_on_selector_all(".leaflet-control-layers-base label",
+                                     "e => e.length") == 0)
 
         avaa(sivu, T0)
         otsikot = sivu.eval_on_selector_all(".pu > .pu-attr td:first-child",
@@ -368,8 +385,8 @@ def main():
         ok("popup näyttää vain valitut sarakkeet",
            otsikot == ["tunnus", "vuosi", "suojeluhalu"], otsikot)
         ok("tyhjä sarake (huom) jätetään pois", "huom" not in otsikot)
-        ok("kaavoittajan suositus ei toistu attribuuttitaulussa",
-           "Kaavoittajan suositus" not in otsikot and "potentiaali" not in otsikot,
+        ok("kaavoittajan luokitus ei toistu attribuuttitaulussa",
+           "Kaavoittajan luokitus" not in otsikot and "potentiaali" not in otsikot,
            otsikot)
         ok("viranomaissarakkeet eivät ole ylätaulussa",
            not any(o.startswith("Viranomaisen") for o in otsikot))
@@ -399,15 +416,6 @@ def main():
         }""")
         ok("näkymävalitsin ei peitä popupia", peitto["leikkaus"] == 0, peitto)
 
-        napit = sivu.eval_on_selector_all(".pu-kaava .pu-napit button",
-                                          "e => e.map(x => x.textContent)")
-        ok("kolme luokituspainiketta",
-           napit == ["Ei merkintää", "Suositus säilyttämisestä", "Suojelukohde"], napit)
-        ok("aktiivinen vastaa nykyistä arvoa",
-           sivu.eval_on_selector_all(".pu-kaava .pu-napit button.aktiivinen",
-                                     "e => e.map(x => x.textContent)")
-           == ["Suositus säilyttämisestä"])
-
         vir = sivu.text_content(".pu-vir")
         ok("kaikkien kolmen tahon kommentit näkyvät lukuosiossa",
            all(nimi in vir for _, nimi in TAHOT), vir[:90])
@@ -420,6 +428,14 @@ def main():
            sivu.evaluate("window.HAKKEROITU === undefined")
            and "<script>" in sivu.inner_text(".pu-vir"))
 
+        # Ilman apps_script_urlia myös kaavoittajan lomake on lukittu —
+        # hiljainen epäonnistuminen olisi pahin vaihtoehto
+        ok("kaavoittajalla on oma lomake", sivu.locator(".pu-vir-lomake").count() == 1
+           and "Kaavoittajan" in sivu.text_content(".pu-vir-lomake h4"))
+        ok("Tallenna lukittu ilman endpointtia",
+           sivu.eval_on_selector(".pu-lomake-footer button", "e => e.disabled") is True
+           and "apps_script_url" in sivu.text_content(".pu-lomake-viesti"))
+
         if T_HUOM:
             avaa(sivu, T_HUOM)
             ok("täytetty huom-sarake näkyy",
@@ -428,42 +444,29 @@ def main():
             ok("ilman lausuntoa näkyy huomautus",
                sivu.eval_on_selector_all(".pu-vir-tyhja", "e => e.length") == len(TAHOT))
 
-        # Luokituksen muutos
-        avaa(sivu, T0)
-        ennen = sivu.evaluate(f"markkerit[{json.dumps(T0)}].options.color")
-        sivu.click(".pu-kaava .pu-napit button:nth-child(3)")     # Suojelukohde
-        sivu.wait_for_timeout(300)
-        ok("pisteen väri päivittyi heti",
-           ennen == "#1f78b4"
-           and sivu.evaluate(f"markkerit[{json.dumps(T0)}].options.color") == "#e31a1c")
-        ok("aktiivinen korostus siirtyi",
-           sivu.eval_on_selector_all(".pu-kaava .pu-napit button.aktiivinen",
-                                     "e => e.map(x => x.textContent)") == ["Suojelukohde"])
-        ok("localStorage-avain ja arvo",
-           json.loads(sivu.evaluate(
-               f"localStorage.getItem('luokitukset_kentta_{PROJEKTI}')"))
-           == {T0: "suojelukohde"})
-
         # Näkymän vaihto
+        sivu.evaluate("map.closePopup()")
         sivu.click('.nakyma-control button[data-nakyma="lvv"]')
         sivu.wait_for_timeout(600)
         v = varit(sivu)
         ok("viranomaisnäkymä värittyy luokitus_vir:n mukaan",
            v.get("#e31a1c") == 1 and v.get("#1f78b4") == 1, v)
+        ok("kommentoimaton kohde on harmaa, ei musta piste",
+           v.get("#555555") == len(piirteet) - 2, v)
         avaa(sivu, T0)
-        ok("kaavoittajan osio on vain luku viranomaisnäkymässä",
+        ok("kaavoittajan kanta on vain luku viranomaisnäkymässä",
            sivu.eval_on_selector_all(".pu-kaava .pu-napit button", "e => e.length") == 0
-           and sivu.text_content(".pu-lukuarvo") == "Suojelukohde")
+           and sivu.text_content(".pu-lukuarvo") == "Suositus säilyttämisestä")
 
-        sivu.click('.nakyma-control button[data-nakyma="kaavoittaja"]')
+        sivu.evaluate("map.closePopup()")
+        sivu.click('.nakyma-control button[data-nakyma="kaav"]')
         sivu.wait_for_timeout(500)
-        ok("muutos säilyi näkymän vaihdon yli",
-           sivu.evaluate(f"markkerit[{json.dumps(T0)}].options.color") == "#e31a1c")
         ok("tunnusotsikot piirtyivät uudelleen näkymän vaihdossa",
            sivu.eval_on_selector_all(".leaflet-tooltip.tunnus-otsikko", "e => e.length")
            == len(piirteet))
 
-        # Lataus
+        # Lataus: vie voimassa olevan luokan jokaiselle kohteelle, myös
+        # Vastuumuseon pohjasta peritylle
         with sivu.expect_download(timeout=10000) as odota:
             sivu.click("#lataa-suositukset")
         lataus = odota.value
@@ -472,17 +475,16 @@ def main():
         ladattu = json.loads(polku.read_text(encoding="utf-8"))
 
         ok("tiedostonimi",
-           re.fullmatch(rf"kaavoittajan_suositus_{PROJEKTI}_\d{{4}}-\d\d-\d\d\.geojson",
+           re.fullmatch(rf"kaavoittajan_luokitus_{PROJEKTI}_\d{{4}}-\d\d-\d\d\.geojson",
                         lataus.suggested_filename), lataus.suggested_filename)
-        muutettu = [f["properties"] for f in ladattu["features"]
-                    if str(f["properties"]["tunnus"]) == T0][0]
-        ok("muutettu arvo tiedostossa", muutettu["potentiaali"] == "suojelukohde")
-        muut = [f["properties"]["potentiaali"] for f in ladattu["features"]
-                if str(f["properties"]["tunnus"]) != T0]
-        ok("muut kohteet ennallaan",
-           muut.count("paikallinen") == 13 and muut.count("suojelukohde") == 8,
-           f"paikallinen={muut.count('paikallinen')} suojelukohde={muut.count('suojelukohde')}")
         ok("kohdemäärä säilyi", len(ladattu["features"]) == len(piirteet))
+        arvot = [f["properties"]["potentiaali"] for f in ladattu["features"]]
+        ok("jokaisella kohteella on luokka", all(arvot), f"tyhjiä: {arvot.count('')}")
+        ok("pohja-arvot tiedostossa",
+           arvot.count("ei_suojeluarvoja") == len(piirteet) - 1
+           and arvot.count("paikallinen") == 1,
+           f"ei_suojeluarvoja={arvot.count('ei_suojeluarvoja')} "
+           f"paikallinen={arvot.count('paikallinen')}")
 
     aja("", {"status": 200, "body": "{}"}, testit1)
 
@@ -497,8 +499,7 @@ def main():
         sivu.click('.nakyma-control button[data-nakyma="lvv"]')
         sivu.wait_for_timeout(600)
         ok("väri Sheetsin arvosta, ei GeoJSONista",
-           sivu.evaluate(f"markkerit[{json.dumps(T0)}].options.color") == "#1f78b4",
-           sivu.evaluate(f"markkerit[{json.dumps(T0)}].options.color"))
+           vari(sivu, T0) == "#1f78b4", vari(sivu, T0))
 
         avaa(sivu, T0)
         sivu.wait_for_selector(".pu-vir-lomake", timeout=5000)
@@ -519,7 +520,8 @@ def main():
 
         sivu.fill(".pu-vir-lomake textarea", "Uusi kommentti selaimesta")
         sivu.fill(".pu-vir-lomake .pu-kentta:nth-of-type(2) input", "Markus Testaaja")
-        sivu.click(".pu-vir-lomake .pu-napit button:nth-child(3)")   # Suojelukohde
+        sivu.locator(".pu-vir-lomake .pu-napit button",
+                     has_text=re.compile(r"^Suojelukohde$")).click()
         sivu.click(".pu-lomake-footer button")
         sivu.wait_for_selector(".pu-lomake-viesti.onnistui", timeout=5000)
 
@@ -534,8 +536,7 @@ def main():
             "kommentti_vir": "Uusi kommentti selaimesta",
             "nimi_vir": "Markus Testaaja"},
            postit[-1]["body"])
-        ok("väri päivittyi tallennuksesta",
-           sivu.evaluate(f"markkerit[{json.dumps(T0)}].options.color") == "#e31a1c")
+        ok("väri päivittyi tallennuksesta", vari(sivu, T0) == "#e31a1c")
         ok("oma nimi muistiin",
            json.loads(sivu.evaluate("localStorage.getItem('viranomainen_tiedot')"))
            == {"nimi": "Markus Testaaja"})
@@ -549,12 +550,14 @@ def main():
            sivu.input_value(".pu-vir-lomake textarea") == "")
 
         sivu.evaluate("map.closePopup()")
-        sivu.click('.nakyma-control button[data-nakyma="kaavoittaja"]')
+        sivu.click('.nakyma-control button[data-nakyma="kaav"]')
         sivu.wait_for_timeout(500)
         avaa(sivu, T0)
-        ok("kaavoittajan näkymässä ei Tallenna-nappia",
-           sivu.eval_on_selector_all(".pu-vir-lomake", "e => e.length") == 0
-           and sivu.eval_on_selector_all(".pu-lomake-footer", "e => e.length") == 0)
+        ok("kaavoittajan näkymässä on oma lomake, ei viranomaisen",
+           sivu.locator(".pu-vir-lomake").count() == 1
+           and "Kaavoittajan" in sivu.text_content(".pu-vir-lomake h4"))
+        ok("kaavoittajan lomake ei esitäyty viranomaisen kommentilla",
+           sivu.input_value(".pu-vir-lomake textarea") == "")
         ok("kaavoittajan näkymä näyttää juuri tallennetun kommentin",
            "Markus Testaaja" in sivu.text_content(".pu-vir"))
 
