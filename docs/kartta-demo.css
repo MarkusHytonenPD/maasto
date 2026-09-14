@@ -252,20 +252,9 @@ body { font-family: sans-serif; }
 .selitys-lista li.tyhja { opacity: .4; }
 .selitys-teksti { flex: 1; }
 .selitys-maara { font-weight: 700; color: #222; font-variant-numeric: tabular-nums; }
-/* Rengas, ei täplä: sama esitystapa kuin karttasymbolilla, jossa väri on
-   ääriviivassa. */
-.selitys-merkki {
-  flex: none;
-  width: 11px; height: 11px;
-  border: 2.5px solid #999;
-  border-radius: 50%;
-}
-/* Katkoviiva ei piirry luettavasti 11 px:n renkaaseen 2,5 px:n viivalla:
-   isompi rengas ohuemmalla viivalla näyttää samalta kuin karttasymboli. */
-.selitys-merkki.katko {
-  width: 13px; height: 13px;
-  border: 2px dashed #555;
-}
+/* Merkit piirretään SVG:nä kartta-demo.js:ssä (selitysMerkki) — CSS:n
+   dashed-reunus ei anna katkon tiheyttä. */
+.selitys-merkki { flex: none; display: block; overflow: visible; }
 .selitys-alaosa {
   display: flex; align-items: center; gap: 6px;
   margin-top: 5px; padding-top: 5px;
@@ -316,6 +305,3 @@ body { font-family: sans-serif; }
 }
 
 /* ── Pistesymbolin luokka ─────────────────────────────── */
-/* "Ei suojeluarvoja" piirtyy kartalla pienenä täytettynä pisteenä, joten
-   selitteen merkin on oltava täytetty eikä rengas. */
-.selitys-merkki.piste { width: 9px; height: 9px; }

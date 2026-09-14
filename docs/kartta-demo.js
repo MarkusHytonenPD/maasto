@@ -67,18 +67,27 @@ const layerControl = L.control.layers(
 
 // Järjestys kulkee suojeluarvon mukaan; "tarvitaan lisätietoja" on
 // viimeisenä, koska se on keskeneräisyyden merkintä eikä asteikon askel.
-// Kolme kumo-luokkaa ovat violetista magentaan, jotta ne hahmottuvat
-// samaksi ryhmäksi.
-//   piste: symboli piirretään pienenä täytettynä pisteenä renkaan sijaan
+//
+// Symboliikka kantaa kaksi tietoa erikseen:
+//   vari  — suojeluarvo. Kaikki suojelukohteet ovat punaisia riippumatta
+//           siitä kumoutuvatko ne.
+//   katko — kumoutuminen. Kumoutuvan alueen luokat piirtyvät katkoviivalla,
+//           muut yhtenäisellä.
+// Kaksi punaista katkoviivaluokkaa erottaa toisistaan katkon tiheys:
+// MK-suojelukohteella on pitkä katko, paikallisella lyhyt.
+//   piste — symboli piirretään pienenä täytettynä pisteenä renkaan sijaan
 const LUOKAT = [
   { arvo: "ei_suojeluarvoja",          selite: "Ei suojeluarvoja / säilymisen edellytyksiä",
     vari: "#000000", piste: true },
-  { arvo: "kumottava",                 selite: "Kumottavalla alueella",        vari: "#7570b3" },
-  { arvo: "kumoutuva_mk_suojelukohde", selite: "Kumoutuva MK-suojelukohde",    vari: "#b05ccc" },
-  { arvo: "kumoutuva_suojelukohde",    selite: "Kumoutuva suojelukohde",       vari: "#e7298a" },
-  { arvo: "paikallinen",               selite: "Suositus säilyttämisestä",     vari: "#1f78b4" },
-  { arvo: "suojelukohde",              selite: "Suojelukohde",                 vari: "#e31a1c" },
-  { arvo: "lisatietoja",               selite: "Tarvitaan lisätietoja",        vari: "#ff7f00" },
+  { arvo: "kumottava",                 selite: "Kumottavalla alueella",     vari: "#7570b3",
+    katko: "6 5" },
+  { arvo: "kumoutuva_mk_suojelukohde", selite: "Kumoutuva MK-suojelukohde", vari: "#e31a1c",
+    katko: "12 6" },
+  { arvo: "kumoutuva_suojelukohde",    selite: "Kumoutuva suojelukohde",    vari: "#e31a1c",
+    katko: "4 4" },
+  { arvo: "paikallinen",               selite: "Suositus säilyttämisestä",  vari: "#1f78b4" },
+  { arvo: "suojelukohde",              selite: "Suojelukohde",              vari: "#e31a1c" },
+  { arvo: "lisatietoja",               selite: "Tarvitaan lisätietoja",     vari: "#ff7f00" },
 ];
 
 // Tyhjä arvo ei ole enää valittava luokka: kaavoittajalla jokaisella
@@ -401,18 +410,24 @@ const MARKKERI_SADE = 14;
 
 const PISTE_SADE = 7;
 
+// Kaavoittajan käymättä oleva kohde piirtyy ohuella viivalla, oma kirjaus
+// paksulla. Katkoviiva ei ole enää käytettävissä tähän (se merkitsee
+// kumoutumista), eikä haalennus: 45 %:n peitolla symboli hukkui
+// maastokartan viivastoon ja kaavarasteriin.
+const POHJAN_VIIVA = 2;
+const OMAN_VIIVA   = 4;
+
 /**
- * Luokka päättää muodon, oma kirjaus vs. museon pohja päättää viivan.
+ * Luokka päättää värin ja viivatyylin, oma kirjaus vs. museon pohja peiton.
  *
  * Rengas on oletus: se on täyttämätön, joten kaavarasteri näkyy symbolin
  * läpi. "Ei suojeluarvoja" piirretään pienenä mustana pisteenä — se on sama
  * esitystapa jolla Vastuumuseo jätti nämä kohteet mustiksi, ja pieni symboli
  * pitää kartan luettavana silloinkin kun luokka on yleisin.
  *
- * Katkoviiva = arvo on vielä Vastuumuseon pohja, kaavoittaja ei ole käynyt
+ * Ohut viiva = arvo on vielä Vastuumuseon pohja, kaavoittaja ei ole käynyt
  * kohdetta läpi. Pisteellä sama ero näkyy täyttönä: ääriviiva yksin =
- * pohja-arvo, täytetty piste = oma kirjaus. Katkoviiva ei erottuisi näin
- * pienessä renkaassa.
+ * pohja-arvo, täytetty piste = oma kirjaus.
  */
 function markerTyyli(props) {
   const { arvot, oma } = nykyinenKanta(props);
@@ -436,9 +451,9 @@ function markerTyyli(props) {
     radius: MARKKERI_SADE,
     // Väritys ääriviivassa, ei täytössä — kaavarasteri näkyy symbolin läpi
     color: vari,
-    weight: 3,
+    weight: oma ? OMAN_VIIVA : POHJAN_VIIVA,
     opacity: 1,
-    dashArray: oma ? null : "5 4",
+    dashArray: lk && lk.katko ? lk.katko : null,
     // Ei täyttöä lainkaan. Klikattavuus hoidetaan kartta-demo.css:n
     // pointer-events-säännöllä, ei näkymättömällä täytöllä: Chrome ei pidä
     // fill-opacity: 0 -täyttöä maalattuna, joten klikkaus menisi läpi.
@@ -826,6 +841,36 @@ function vaihdaNakyma(nakyma) {
 
 let selitysEl = null;
 
+const SELITE_SADE = 6;
+
+/**
+ * Selitteen rengas SVG:nä, ei CSS-reunuksena: CSS:n dashed-reunus katkoo
+ * ympyrän epätasaisesti eikä siihen saa katkon tiheyttä, joka on ainoa ero
+ * kahden punaisen kumoutuvan luokan välillä. Katkoviiva skaalataan
+ * karttasymbolin säteestä, jotta kuvio näyttää samalta kuin kartalla.
+ */
+// Luokkarivit piirretään yhtenäisellä viivanpaksuudella: kartan 2 px ja
+// 4 px eivät skaalaudu selitteen renkaaseen erottuvasti. Alaosan ohut
+// rengas näyttää eron pohja-arvon ja oman kirjauksen välillä.
+function selitysRengas(vari, katko, viiva) {
+  const suhde = SELITE_SADE / MARKKERI_SADE;
+  const kuvio = katko
+    ? ` stroke-dasharray="${katko.split(" ").map(x => (Number(x) * suhde).toFixed(1)).join(" ")}"`
+    : "";
+  return `<svg class="selitys-merkki" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+      <circle cx="8" cy="8" r="${SELITE_SADE}" fill="none"
+              stroke="${vari}" stroke-width="${viiva}"${kuvio} /></svg>`;
+}
+
+function selitysMerkki(lk) {
+  if (lk.piste) {
+    return `<svg class="selitys-merkki" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+        <circle cx="8" cy="8" r="4" fill="${lk.vari}" /></svg>`;
+  }
+  return selitysRengas(lk.vari, lk.katko || "", 2.5);
+}
+
+
 const SelitysControl = L.Control.extend({
   onAdd() {
     const div = L.DomUtil.create("div", "selitys leaflet-bar");
@@ -858,11 +903,8 @@ function paivitaSelitys() {
 
   const rivit = nakyvat.map(lk => {
     const n = maarat.get(lk.arvo) || 0;
-    const merkki = lk.piste
-      ? `<span class="selitys-merkki piste" style="background:${lk.vari};border-color:${lk.vari}"></span>`
-      : `<span class="selitys-merkki" style="border-color:${lk.vari}"></span>`;
     return `<li${n ? "" : ' class="tyhja"'}>
-        ${merkki}
+        ${selitysMerkki(lk)}
         <span class="selitys-teksti">${esc(lk.selite)}</span>
         <span class="selitys-maara">${n}</span>
       </li>`;
@@ -870,7 +912,7 @@ function paivitaSelitys() {
 
   const alaosa = aktiivinen_nakyma === KAAVOITTAJA.avain
     ? `<p class="selitys-alaosa">
-         <span class="selitys-merkki katko"></span>
+         ${selitysRengas("#555555", "", 1.2)}
          ${pohjalla} kohdetta vielä Vastuumuseon pohjalla</p>`
     : "";
 

@@ -11,7 +11,9 @@ Kattaa demoversion erot tuotantoon:
   • Vastuumuseon kanta jokaisen kohteen lähtöarvona
   • museon tyhjä (kartalla musta) → "ei suojeluarvoja / säilymisen edellytyksiä"
   • vanhaa potentiaali-saraketta ei lueta lähtöarvoksi
-  • katkoviiva = arvo vielä museon pohjalla, yhtenäinen = oma kirjaus
+  • katkoviiva = kumoutuvan alueen luokka, yhtenäinen = muut
+  • kaikki suojelukohdeluokat punaisia, kumoutuvat erottuvat katkon tiheydellä
+  • ohut viiva = arvo vielä museon pohjalla, paksu = oma kirjaus
   • "ei suojeluarvoja" piirtyy mustana pisteenä: täyttö = oma kirjaus
   • kaavoittajan luokitus ja kommentti tallentuvat Sheetiin tahona
     "Kaavoittaja (demo)", ei localStorageen
@@ -42,14 +44,21 @@ LAHDE = REPO / "projektit" / "heinlansi_rak_kulttuuri" / "data" / "kohteet.geojs
 PROJEKTI = "ZZ_demotesti"
 ENDPOINT = "https://apps-script.test/exec"
 
+PUNAINEN = "#e31a1c"
 VARIT = {
     "ei_suojeluarvoja":          "#000000",
     "kumottava":                 "#7570b3",
-    "kumoutuva_mk_suojelukohde": "#b05ccc",
-    "kumoutuva_suojelukohde":    "#e7298a",
+    "kumoutuva_mk_suojelukohde": PUNAINEN,
+    "kumoutuva_suojelukohde":    PUNAINEN,
     "paikallinen":               "#1f78b4",
-    "suojelukohde":              "#e31a1c",
+    "suojelukohde":              PUNAINEN,
     "lisatietoja":               "#ff7f00",
+}
+# Katkoviiva merkitsee kumoutumista, ei puuttuvaa kantaa
+KATKOT = {
+    "kumottava":                 "6 5",
+    "kumoutuva_mk_suojelukohde": "12 6",
+    "kumoutuva_suojelukohde":    "4 4",
 }
 EI_KIRJAUSTA_VARI = "#555555"
 KAAVOITTAJA_TAHO = "Kaavoittaja (demo)"
@@ -120,7 +129,10 @@ def valitse_kohteet(data):
         if not museo and not pot:
             loydot.setdefault("museo_tyhja", tunnus)
         if museo == "paikallinen":
-            loydot.setdefault("museo_paikallinen", tunnus)
+            if "museo_paikallinen" not in loydot:
+                loydot["museo_paikallinen"] = tunnus
+            else:
+                loydot.setdefault("museo_paikallinen_2", tunnus)
         if not museo and pot:
             # Vanha kenttäluokitus jolle museo ei anna tukea
             loydot.setdefault("vanha_potentiaali", (tunnus, pot))
@@ -134,7 +146,8 @@ def aja():
         base = Path(tmp)
         pages, data = rakenna_docs(base)
         kohteet = valitse_kohteet(data)
-        for avain in ("museo_tyhja", "museo_paikallinen", "vanha_potentiaali"):
+        for avain in ("museo_tyhja", "museo_paikallinen",
+                      "museo_paikallinen_2", "vanha_potentiaali"):
             if avain not in kohteet:
                 print(f"Testidataa puuttuu: {avain}")
                 return False
@@ -144,6 +157,8 @@ def aja():
         vanha_t, vanha_arvo = kohteet["vanha_potentiaali"]
         # Kaavoittajalla on jo oma kirjaus tälle kohteelle (Sheetissä)
         oma_t = paikallinen_t
+        # Toinen museon "paikallinen" ilman kaavoittajan kirjausta
+        paikallinen_museo_t = kohteet["museo_paikallinen_2"]
 
         sheet_rivit = [{
             "tunnus": oma_t, "taho": KAAVOITTAJA_TAHO,
@@ -191,6 +206,14 @@ def aja():
                sivu.evaluate("luokkaVari('')"))
             ok("ei_suojeluarvoja on pistesymboli",
                sivu.evaluate("LUOKAT.find(l => l.arvo === 'ei_suojeluarvoja').piste") is True)
+            ok("kaikki suojelukohdeluokat punaisia",
+               all(v == PUNAINEN for a, v in luokat if "suojelukohde" in a),
+               str([(a, v) for a, v in luokat if "suojelukohde" in a]))
+            katkot = sivu.evaluate("Object.fromEntries(LUOKAT.filter(l => l.katko)"
+                                   ".map(l => [l.arvo, l.katko]))")
+            ok("katkoviiva vain kumoutuvan alueen luokilla", katkot == KATKOT, str(katkot))
+            ok("kaksi punaista kumoutuvaa erottuu katkon tiheydellä",
+               KATKOT["kumoutuva_mk_suojelukohde"] != KATKOT["kumoutuva_suojelukohde"])
             ok("'ei arvoja' luetaan tyhjäksi, ei ei_suojeluarvoja-luokaksi",
                sivu.evaluate("normalisoiLuokka('ei arvoja')") == ""
                and sivu.evaluate("normalisoiLuokka('ei_suojeluarvoja')") == "ei_suojeluarvoja")
@@ -201,6 +224,7 @@ def aja():
                     "t => ({vari: markkerit[t].options.color,"
                     "       katko: markkerit[t].options.dashArray,"
                     "       tayttö: markkerit[t].options.fill,"
+                    "       paksuus: markkerit[t].options.weight,"
                     "       sade: markkerit[t].options.radius})", str(tunnus))
 
             a = tyyli(tyhja_t)
@@ -216,7 +240,14 @@ def aja():
             c = tyyli(oma_t)
             ok(f"kaavoittajan oma Sheet-kirjaus voittaa museon (kohde {oma_t})",
                c["vari"] == VARIT["kumottava"], c["vari"])
-            ok("…ja piirtyy yhtenäisellä viivalla", not c["katko"], str(c["katko"]))
+            ok("…kumoutuvan luokan katkoviivalla",
+               c["katko"] == KATKOT["kumottava"], str(c["katko"]))
+            ok("…ja paksulla viivalla, koska kanta on oma", c["paksuus"] == 4, str(c["paksuus"]))
+
+            d0 = tyyli(paikallinen_museo_t)
+            ok(f"museon pohjalla oleva rengas on ohut (kohde {paikallinen_museo_t})",
+               d0["paksuus"] == 2, str(d0["paksuus"]))
+            ok("…ja yhtenäinen, koska luokka ei ole kumoutuva", not d0["katko"], str(d0["katko"]))
 
             print("\n── Popup, kaavoittajan näkymä ──")
             sivu.evaluate("t => markkerit[t].openPopup()", str(tyhja_t))
@@ -253,7 +284,8 @@ def aja():
                    r.get("kommentti_vir") == "Purkualue, ei säilytettävää", str(r.get("kommentti_vir")))
             d = tyyli(tyhja_t)
             ok("väri päivittyi heti", d["vari"] == VARIT["kumottava"], d["vari"])
-            ok("viiva muuttui yhtenäiseksi", not d["katko"], str(d["katko"]))
+            ok("viiva paksuni omaksi kirjaukseksi", d["paksuus"] == 4, str(d["paksuus"]))
+            ok("katkoviiva tuli luokasta", d["katko"] == KATKOT["kumottava"], str(d["katko"]))
             sivu.evaluate("map.closePopup()")
 
             print("\n── Selitelaatikko ──")
