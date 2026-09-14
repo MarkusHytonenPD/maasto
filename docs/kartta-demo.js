@@ -49,11 +49,12 @@ const mmlTausta = L.tileLayer(MML_URL_POHJA, {
   opacity: 1.0, attribution: "&copy; MML",
 });
 
-const layerControl = L.control.layers(
-  { "Maastokartta": mmlMaasto, "Taustakartta": mmlTausta },
-  {},
-  { collapsed: false }
-).addTo(map);
+// Taustakartat ovat rasteja, eivät radionappeja: Leafletin pohjakartta-
+// valinnassa yksi on aina päällä, eikä maakuntakaavaa voisi katsoa
+// puhtaalta pohjalta. Molemmat voi nyt sammuttaa.
+const layerControl = L.control.layers({}, {}, { collapsed: false }).addTo(map);
+layerControl.addOverlay(mmlMaasto, "Maastokartta");
+layerControl.addOverlay(mmlTausta, "Taustakartta");
 
 // ═══════════════════════════════════════════════════════════════
 //  LUOKITUSMALLI
