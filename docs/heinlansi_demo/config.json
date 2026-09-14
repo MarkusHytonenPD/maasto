@@ -2,6 +2,12 @@
     "nimi": "heinlansi_demo",
     "tasot": [
         {
+            "nimi": "Maakuntakaavayhdistelmä (PK 2025)",
+            "url": "https://geoserver.lounaistieto.fi/geoserver/hame_pohjois_karjala/ows",
+            "layer": "hame_pohjois_karjala2025",
+            "nakyva": false
+        },
+        {
             "nimi": "Kaavaluonnos",
             "url": "https://ubigu.ubihub.io/geoserver/kaavarasterit/ows",
             "layer": "kaavarasterit:hein_lans_luonnos",
