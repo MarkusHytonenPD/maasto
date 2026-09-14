@@ -314,3 +314,8 @@ body { font-family: sans-serif; }
   background: #eef2f7;
   box-shadow: 0 -6px 6px -6px rgba(0,0,0,.25);
 }
+
+/* ── Pistesymbolin luokka ─────────────────────────────── */
+/* "Ei suojeluarvoja" piirtyy kartalla pienenä täytettynä pisteenä, joten
+   selitteen merkin on oltava täytetty eikä rengas. */
+.selitys-merkki.piste { width: 9px; height: 9px; }

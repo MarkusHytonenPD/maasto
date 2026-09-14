@@ -65,16 +65,27 @@ const layerControl = L.control.layers(
 //  arvo luettaisiin luokaksi "Ei merkintää".
 // ═══════════════════════════════════════════════════════════════
 
+// Järjestys kulkee suojeluarvon mukaan; "tarvitaan lisätietoja" on
+// viimeisenä, koska se on keskeneräisyyden merkintä eikä asteikon askel.
+// Kolme kumo-luokkaa ovat violetista magentaan, jotta ne hahmottuvat
+// samaksi ryhmäksi.
+//   piste: symboli piirretään pienenä täytettynä pisteenä renkaan sijaan
 const LUOKAT = [
-  // Harmaa on tummempi kuin popupin harmaat tekstit: ääriviivana vaalea
-  // harmaa hukkui maastokartan viivastoon
-  { arvo: "",                 selite: "Ei merkintää",                              vari: "#555555" },
-  { arvo: "ei_suojeluarvoja", selite: "Ei suojeluarvoja / säilymisen edellytyksiä", vari: "#a6761d" },
-  { arvo: "kumottava",        selite: "Kumottavalla alueella",                     vari: "#7570b3" },
-  { arvo: "lisatietoja",      selite: "Tarvitaan lisätietoja",                     vari: "#ff7f00" },
-  { arvo: "paikallinen",      selite: "Suositus säilyttämisestä",                  vari: "#1f78b4" },
-  { arvo: "suojelukohde",     selite: "Suojelukohde",                              vari: "#e31a1c" },
+  { arvo: "ei_suojeluarvoja",          selite: "Ei suojeluarvoja / säilymisen edellytyksiä",
+    vari: "#000000", piste: true },
+  { arvo: "kumottava",                 selite: "Kumottavalla alueella",        vari: "#7570b3" },
+  { arvo: "kumoutuva_mk_suojelukohde", selite: "Kumoutuva MK-suojelukohde",    vari: "#b05ccc" },
+  { arvo: "kumoutuva_suojelukohde",    selite: "Kumoutuva suojelukohde",       vari: "#e7298a" },
+  { arvo: "paikallinen",               selite: "Suositus säilyttämisestä",     vari: "#1f78b4" },
+  { arvo: "suojelukohde",              selite: "Suojelukohde",                 vari: "#e31a1c" },
+  { arvo: "lisatietoja",               selite: "Tarvitaan lisätietoja",        vari: "#ff7f00" },
 ];
+
+// Tyhjä arvo ei ole enää valittava luokka: kaavoittajalla jokaisella
+// kohteella on Vastuumuseon pohja-arvo, ja viranomaisella tyhjä tarkoittaa
+// "ei ole vielä kommentoinut". Harmaa on tummempi kuin popupin harmaat
+// tekstit: ääriviivana vaalea harmaa hukkui maastokartan viivastoon.
+const EI_KIRJAUSTA = { arvo: "", selite: "Ei kommenttia", vari: "#555555" };
 
 // Vastuumuseon tyhjäksi jättämien kohteiden lähtöluokka
 const EI_SUOJELUARVOJA = "ei_suojeluarvoja";
@@ -147,7 +158,7 @@ function luokkaSelite(arvo) {
 
 function luokkaVari(arvo) {
   const l = luokka(arvo);
-  return l ? l.vari : LUOKAT[0].vari;
+  return l ? l.vari : EI_KIRJAUSTA.vari;
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -388,16 +399,45 @@ async function haeData(tiedosto) {
 
 const MARKKERI_SADE = 14;
 
+const PISTE_SADE = 7;
+
+/**
+ * Luokka päättää muodon, oma kirjaus vs. museon pohja päättää viivan.
+ *
+ * Rengas on oletus: se on täyttämätön, joten kaavarasteri näkyy symbolin
+ * läpi. "Ei suojeluarvoja" piirretään pienenä mustana pisteenä — se on sama
+ * esitystapa jolla Vastuumuseo jätti nämä kohteet mustiksi, ja pieni symboli
+ * pitää kartan luettavana silloinkin kun luokka on yleisin.
+ *
+ * Katkoviiva = arvo on vielä Vastuumuseon pohja, kaavoittaja ei ole käynyt
+ * kohdetta läpi. Pisteellä sama ero näkyy täyttönä: ääriviiva yksin =
+ * pohja-arvo, täytetty piste = oma kirjaus. Katkoviiva ei erottuisi näin
+ * pienessä renkaassa.
+ */
 function markerTyyli(props) {
   const { arvot, oma } = nykyinenKanta(props);
+  const lk   = luokka(arvot[LUOKITUS_VIR]);
+  const vari = lk ? lk.vari : EI_KIRJAUSTA.vari;
+
+  if (lk && lk.piste) {
+    return {
+      radius: PISTE_SADE,
+      color: vari,
+      weight: 2,
+      opacity: 1,
+      fill: oma,
+      fillColor: vari,
+      fillOpacity: 1,
+      dashArray: null,
+    };
+  }
+
   return {
     radius: MARKKERI_SADE,
     // Väritys ääriviivassa, ei täytössä — kaavarasteri näkyy symbolin läpi
-    color: luokkaVari(arvot[LUOKITUS_VIR]),
+    color: vari,
     weight: 3,
     opacity: 1,
-    // Katkoviiva kaavoittajan näkymässä = arvo on vielä Vastuumuseon pohja,
-    // kaavoittaja ei ole käynyt kohdetta läpi. Yhtenäinen = oma kirjaus.
     dashArray: oma ? null : "5 4",
     // Ei täyttöä lainkaan. Klikattavuus hoidetaan kartta-demo.css:n
     // pointer-events-säännöllä, ei näkymättömällä täytöllä: Chrome ei pidä
@@ -521,7 +561,7 @@ function popupViranomaisetLuku(props, korostettuTaho) {
       .filter(x => !tyhja(x)).map(x => esc(x)).join(" — ");
     const korostus = taho.avain === korostettuTaho ? " pu-taho-aktiivinen" : "";
     return `<tr class="pu-taho${korostus}">
-        <td><span class="pu-taho-merkki" style="background:${lk ? lk.vari : LUOKAT[0].vari}"></span>${esc(taho.nimi)}</td>
+        <td><span class="pu-taho-merkki" style="background:${lk ? lk.vari : EI_KIRJAUSTA.vari}"></span>${esc(taho.nimi)}</td>
         <td>${on ? esc(luokkaSelite(arvot[LUOKITUS_VIR])) : '<span class="pu-vir-tyhja">Ei kommenttia</span>'}
             ${lisat ? `<div class="pu-taho-lisa">${lisat}</div>` : ""}</td>
       </tr>`;
@@ -809,10 +849,20 @@ function paivitaSelitys() {
     if (!oma) pohjalla++;
   });
 
-  const rivit = LUOKAT.map(lk => {
+  // Tyhjä arvo esiintyy vain viranomaisnäkymissä (ei vielä kommentoinut).
+  // Se ei ole valittava luokka, mutta rivi tarvitaan jotta määrät täsmäävät
+  // kohteiden lukumäärään.
+  const nakyvat = maarat.get(EI_KIRJAUSTA.arvo)
+    ? [...LUOKAT, EI_KIRJAUSTA]
+    : LUOKAT;
+
+  const rivit = nakyvat.map(lk => {
     const n = maarat.get(lk.arvo) || 0;
+    const merkki = lk.piste
+      ? `<span class="selitys-merkki piste" style="background:${lk.vari};border-color:${lk.vari}"></span>`
+      : `<span class="selitys-merkki" style="border-color:${lk.vari}"></span>`;
     return `<li${n ? "" : ' class="tyhja"'}>
-        <span class="selitys-merkki" style="border-color:${lk.vari}"></span>
+        ${merkki}
         <span class="selitys-teksti">${esc(lk.selite)}</span>
         <span class="selitys-maara">${n}</span>
       </li>`;

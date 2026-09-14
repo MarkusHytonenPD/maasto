@@ -6,11 +6,13 @@ kaikki ulkoiset pyynnöt paikallisiin fikstuureihin, joten testi ei kosketa
 MML:ää, Apps Scriptia eikä docs/-kansion tiedostoja.
 
 Kattaa demoversion erot tuotantoon:
-  • kuusiportainen asteikko, sama kaavoittajalle ja viranomaiselle
+  • seitsenportainen asteikko, sama kaavoittajalle ja viranomaiselle
+  • tyhjä ei ole valittava luokka — viranomaisella se on "ei kommenttia"
   • Vastuumuseon kanta jokaisen kohteen lähtöarvona
   • museon tyhjä (kartalla musta) → "ei suojeluarvoja / säilymisen edellytyksiä"
   • vanhaa potentiaali-saraketta ei lueta lähtöarvoksi
   • katkoviiva = arvo vielä museon pohjalla, yhtenäinen = oma kirjaus
+  • "ei suojeluarvoja" piirtyy mustana pisteenä: täyttö = oma kirjaus
   • kaavoittajan luokitus ja kommentti tallentuvat Sheetiin tahona
     "Kaavoittaja (demo)", ei localStorageen
   • "ei arvoja" ei sekoitu luokkaan "ei_suojeluarvoja"
@@ -41,13 +43,15 @@ PROJEKTI = "ZZ_demotesti"
 ENDPOINT = "https://apps-script.test/exec"
 
 VARIT = {
-    "":                 "#555555",
-    "ei_suojeluarvoja": "#a6761d",
-    "kumottava":        "#7570b3",
-    "lisatietoja":      "#ff7f00",
-    "paikallinen":      "#1f78b4",
-    "suojelukohde":     "#e31a1c",
+    "ei_suojeluarvoja":          "#000000",
+    "kumottava":                 "#7570b3",
+    "kumoutuva_mk_suojelukohde": "#b05ccc",
+    "kumoutuva_suojelukohde":    "#e7298a",
+    "paikallinen":               "#1f78b4",
+    "suojelukohde":              "#e31a1c",
+    "lisatietoja":               "#ff7f00",
 }
+EI_KIRJAUSTA_VARI = "#555555"
 KAAVOITTAJA_TAHO = "Kaavoittaja (demo)"
 
 LAATTA = base64.b64decode(
@@ -178,8 +182,15 @@ def aja():
 
             print("\n── Luokka-asteikko ──")
             luokat = sivu.evaluate("LUOKAT.map(l => [l.arvo, l.vari])")
-            ok("kuusi luokkaa", len(luokat) == 6, f"{len(luokat)}")
+            ok("seitsemän luokkaa", len(luokat) == 7, f"{len(luokat)}")
             ok("arvot ja värit odotetut", dict(luokat) == VARIT, str(dict(luokat)))
+            ok("tyhjä ei ole valittava luokka",
+               not any(a == "" for a, _ in luokat))
+            ok("tyhjän väri tulee EI_KIRJAUSTA:sta, ei mustasta pisteestä",
+               sivu.evaluate("luokkaVari('')") == EI_KIRJAUSTA_VARI,
+               sivu.evaluate("luokkaVari('')"))
+            ok("ei_suojeluarvoja on pistesymboli",
+               sivu.evaluate("LUOKAT.find(l => l.arvo === 'ei_suojeluarvoja').piste") is True)
             ok("'ei arvoja' luetaan tyhjäksi, ei ei_suojeluarvoja-luokaksi",
                sivu.evaluate("normalisoiLuokka('ei arvoja')") == ""
                and sivu.evaluate("normalisoiLuokka('ei_suojeluarvoja')") == "ei_suojeluarvoja")
@@ -188,12 +199,15 @@ def aja():
             def tyyli(tunnus):
                 return sivu.evaluate(
                     "t => ({vari: markkerit[t].options.color,"
-                    "       katko: markkerit[t].options.dashArray})", str(tunnus))
+                    "       katko: markkerit[t].options.dashArray,"
+                    "       tayttö: markkerit[t].options.fill,"
+                    "       sade: markkerit[t].options.radius})", str(tunnus))
 
             a = tyyli(tyhja_t)
-            ok(f"museon tyhjä → ei suojeluarvoja (kohde {tyhja_t})",
+            ok(f"museon tyhjä → musta piste (kohde {tyhja_t})",
                a["vari"] == VARIT["ei_suojeluarvoja"], a["vari"])
-            ok("…ja katkoviivalla (ei omaa kantaa)", a["katko"] == "5 4", str(a["katko"]))
+            ok("…pienellä säteellä", a["sade"] == 7, str(a["sade"]))
+            ok("…ja täyttämättä, koska omaa kantaa ei ole", a["tayttö"] is False)
 
             b = tyyli(vanha_t)
             ok(f"vanhaa potentiaalia ei lueta pohjaksi (kohde {vanha_t}, potentiaali={vanha_arvo})",
@@ -209,7 +223,9 @@ def aja():
             sivu.wait_for_selector(".pu-vir-lomake .pu-napit button")
             napit = sivu.eval_on_selector_all(
                 ".pu-vir-lomake .pu-napit button", "ns => ns.map(n => n.textContent.trim())")
-            ok("kuusi luokituspainiketta", len(napit) == 6, str(len(napit)))
+            ok("seitsemän luokituspainiketta", len(napit) == 7, str(len(napit)))
+            ok("'Ei merkintää' ei ole valittavissa",
+               not any("merkintää" in n for n in napit), str(napit))
             valittu = sivu.eval_on_selector_all(
                 ".pu-vir-lomake .pu-napit button.aktiivinen", "ns => ns.map(n => n.textContent.trim())")
             ok("museon pohja on esivalittuna",
@@ -243,7 +259,7 @@ def aja():
             print("\n── Selitelaatikko ──")
             rivit = sivu.eval_on_selector_all(
                 ".selitys-lista li .selitys-teksti", "ns => ns.map(n => n.textContent.trim())")
-            ok("kuusi seliteriviä", len(rivit) == 6, str(len(rivit)))
+            ok("seitsemän seliteriviä", len(rivit) == 7, str(len(rivit)))
             maarat = sivu.eval_on_selector_all(
                 ".selitys-lista li .selitys-maara", "ns => ns.map(n => Number(n.textContent))")
             ok("määrien summa = kohteiden määrä",
@@ -256,11 +272,20 @@ def aja():
             sivu.evaluate("vaihdaNakyma('museo')")
             sivu.evaluate("t => markkerit[t].openPopup()", str(paikallinen_t))
             sivu.wait_for_selector(".pu-vir-lomake")
-            ok("sama kuusiportainen asteikko myös viranomaisella",
-               sivu.locator(".pu-vir-lomake .pu-napit button").count() == 6)
+            ok("sama seitsenportainen asteikko myös viranomaisella",
+               sivu.locator(".pu-vir-lomake .pu-napit button").count() == 7)
             ok("kaavoittajan kanta näkyy lukuarvona",
                sivu.locator(".pu-kaava-luku .pu-lukuarvo").inner_text().strip()
                == "Kumottavalla alueella")
+            selite = sivu.eval_on_selector_all(
+                ".selitys-lista li .selitys-teksti", "ns => ns.map(n => n.textContent.trim())")
+            ok("viranomaisnäkymässä on 'Ei kommenttia' -rivi",
+               "Ei kommenttia" in selite, str(selite))
+            vir_maarat = sivu.eval_on_selector_all(
+                ".selitys-lista li .selitys-maara", "ns => ns.map(n => Number(n.textContent))")
+            ok("viranomaisnäkymän määrien summa = kohteiden määrä",
+               sum(vir_maarat) == len(data["features"]),
+               f"{sum(vir_maarat)} / {len(data['features'])}")
             sivu.evaluate("map.closePopup()")
             sivu.evaluate("vaihdaNakyma('kaav')")
 
