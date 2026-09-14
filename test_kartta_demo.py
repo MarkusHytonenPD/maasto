@@ -214,6 +214,15 @@ def aja():
             ok("katkoviiva vain kumoutuvan alueen luokilla", katkot == KATKOT, str(katkot))
             ok("kaksi punaista kumoutuvaa erottuu katkon tiheydellä",
                KATKOT["kumoutuva_mk_suojelukohde"] != KATKOT["kumoutuva_suojelukohde"])
+            paksut = sivu.evaluate("Object.fromEntries(LUOKAT.filter(l => l.lisapaksuus)"
+                                   ".map(l => [l.arvo, l.lisapaksuus]))")
+            ok("…ja lisäksi viivan paksuudella, vain MK-suojelukohteella",
+               paksut == {"kumoutuva_mk_suojelukohde": 1.5}, str(paksut))
+            ok("MK piirtyy paksummalla viivalla kuin muut samassa tilassa",
+               sivu.evaluate("markerTyyli({tunnus: 'X', luokitus_museo: "
+                             "'kumoutuva_mk_suojelukohde'}).weight") == 3.5,
+               str(sivu.evaluate("markerTyyli({tunnus: 'X', luokitus_museo: "
+                                 "'kumoutuva_mk_suojelukohde'}).weight")))
             ok("'ei arvoja' luetaan tyhjäksi, ei ei_suojeluarvoja-luokaksi",
                sivu.evaluate("normalisoiLuokka('ei arvoja')") == ""
                and sivu.evaluate("normalisoiLuokka('ei_suojeluarvoja')") == "ei_suojeluarvoja")
