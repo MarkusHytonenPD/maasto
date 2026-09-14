@@ -9,7 +9,8 @@ Kattaa demoversion erot tuotantoon:
   • seitsenportainen asteikko, sama kaavoittajalle ja viranomaiselle
   • tyhjä ei ole valittava luokka — viranomaisella se on "ei kommenttia"
   • Vastuumuseon kanta jokaisen kohteen lähtöarvona
-  • museon tyhjä (kartalla musta) → "ei suojeluarvoja / säilymisen edellytyksiä"
+  • museon tyhjä ilman kommenttia → "ei suojeluarvoja / säilymisen edellytyksiä"
+  • museon tyhjä mutta kommentoitu → "tarvitaan lisätietoja"
   • vanhaa potentiaali-saraketta ei lueta lähtöarvoksi
   • katkoviiva = kumoutuvan alueen luokka, yhtenäinen = muut
   • kaikki suojelukohdeluokat punaisia, kumoutuvat erottuvat katkon tiheydellä
@@ -128,8 +129,13 @@ def valitse_kohteet(data):
         tunnus = str(p.get("tunnus"))
         museo  = "" if _tyhja(p.get("luokitus_museo")) else str(p["luokitus_museo"]).strip()
         pot    = "" if _tyhja(p.get("potentiaali")) else str(p["potentiaali"]).strip()
-        if not museo and not pot:
-            loydot.setdefault("museo_tyhja", tunnus)
+        kom    = not _tyhja(p.get("kommentti_museo"))
+        if not museo and not kom:
+            # Ei luokitusta eikä kommenttia = museo ei esittänyt huomioita
+            if not pot:
+                loydot.setdefault("museo_tyhja", tunnus)
+        if not museo and kom:
+            loydot.setdefault("museo_vain_kommentti", tunnus)
         if museo == "paikallinen":
             if "museo_paikallinen" not in loydot:
                 loydot["museo_paikallinen"] = tunnus
@@ -148,7 +154,7 @@ def aja():
         base = Path(tmp)
         pages, data = rakenna_docs(base)
         kohteet = valitse_kohteet(data)
-        for avain in ("museo_tyhja", "museo_paikallinen",
+        for avain in ("museo_tyhja", "museo_vain_kommentti", "museo_paikallinen",
                       "museo_paikallinen_2", "vanha_potentiaali"):
             if avain not in kohteet:
                 print(f"Testidataa puuttuu: {avain}")
@@ -161,6 +167,7 @@ def aja():
         oma_t = paikallinen_t
         # Toinen museon "paikallinen" ilman kaavoittajan kirjausta
         paikallinen_museo_t = kohteet["museo_paikallinen_2"]
+        vain_kommentti_t = kohteet["museo_vain_kommentti"]
 
         sheet_rivit = [{
             "tunnus": oma_t, "taho": KAAVOITTAJA_TAHO,
@@ -259,6 +266,14 @@ def aja():
             ok("…ja täyttämättä, koska omaa kantaa ei ole", a["tayttö"] is False)
             ok("…ja ikoni on piirretty markkeriin",
                'fill="none"' in a["ikoni"] and "#000000" in a["ikoni"])
+
+            kk = tyyli(vain_kommentti_t)
+            ok(f"museo kommentoi luokittelematta → tarvitaan lisätietoja "
+               f"(kohde {vain_kommentti_t})",
+               kk["muoto"] == "kysymys" and kk["vari"] == PUNAINEN,
+               f'{kk["muoto"]} {kk["vari"]}')
+            ok("…eli museon kysymys ei katoa 'ei suojeluarvoja' -pohjan alle",
+               kk["muoto"] != "piste")
 
             b = tyyli(vanha_t)
             ok(f"vanhaa potentiaalia ei lueta pohjaksi (kohde {vanha_t}, potentiaali={vanha_arvo})",

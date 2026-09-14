@@ -102,8 +102,9 @@ const LUOKAT = [
 // tekstit: ääriviivana vaalea harmaa hukkui maastokartan viivastoon.
 const EI_KIRJAUSTA = { arvo: "", selite: "Ei kommenttia", vari: "#555555" };
 
-// Vastuumuseon tyhjäksi jättämien kohteiden lähtöluokka
+// Vastuumuseon kannan puuttuessa käytettävät lähtöluokat
 const EI_SUOJELUARVOJA = "ei_suojeluarvoja";
+const LISATIETOJA      = "lisatietoja";
 
 // Aineistossa esiintyvä "ei arvoja" tarkoittaa samaa kuin tyhjä.
 const TYHJAT = ["", "ei arvoja", "0", "null", "none", "nan"];
@@ -229,13 +230,19 @@ function viranomaisArvot(props, tahoAvain) {
 }
 
 /**
- * Vastuumuseon kanta on jokaisen kohteen lähtöarvo. Museon tyhjäksi jättämä
- * (kartalla musta) kohde alkaa luokasta "ei suojeluarvoja / säilymisen
- * edellytyksiä" — se on tämän kierroksen tulkinta museon mustista pisteistä.
+ * Vastuumuseon kanta on jokaisen kohteen lähtöarvo.
+ *
+ * Luokittelematon kohde ei tarkoita aina samaa: museo on jättänyt osan
+ * kokonaan ilman huomioita, mutta osaan se on kirjoittanut kommentin
+ * luokittelematta ("Arvot?", "Ei voi näillä tiedoilla arvioida."). Nämä ovat
+ * kysymyksiä, joten niiden pohja on "tarvitaan lisätietoja" — muuten museon
+ * esittämä kysymys katoaisi pohja-arvon "ei suojeluarvoja" alle.
  */
 function museoPohja(props) {
-  const museo = normalisoiLuokka(viranomaisArvot(props, MUSEO)[LUOKITUS_VIR]);
-  return museo || EI_SUOJELUARVOJA;
+  const arvot    = viranomaisArvot(props, MUSEO);
+  const luokitus = normalisoiLuokka(arvot[LUOKITUS_VIR]);
+  if (luokitus) return luokitus;
+  return tyhja(arvot[KOMMENTTI_VIR]) ? EI_SUOJELUARVOJA : LISATIETOJA;
 }
 
 /**
@@ -414,7 +421,7 @@ async function haeData(tiedosto) {
 
 const MARKKERI_SADE = 14;
 
-const PISTE_SADE = 7;
+const PISTE_SADE = 3.5;
 
 // Kaavoittajan käymättä oleva kohde piirtyy ohuella viivalla, oma kirjaus
 // paksulla. Katkoviiva ei ole käytettävissä tähän (se merkitsee
@@ -471,7 +478,9 @@ function symboliSvg(spec, koko, sade) {
   }
 
   if (spec.muoto === "piste") {
-    const r = PISTE_SADE * (sade / MARKKERI_SADE);
+    // Selitteessä alaraja: suhteessa skaalattu piste kutistuisi
+    // näkymättömäksi, ja selite on muutenkin kaavakuva eikä mittakaavassa.
+    const r = Math.max(2.5, PISTE_SADE * (sade / MARKKERI_SADE));
     return `${avaa}<circle cx="${c}" cy="${c}" r="${r.toFixed(1)}" ` +
       `fill="${spec.tayttö ? spec.vari : "none"}" ` +
       `stroke="${spec.vari}" stroke-width="2" /></svg>`;
