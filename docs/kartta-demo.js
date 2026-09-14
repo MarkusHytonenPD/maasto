@@ -80,10 +80,10 @@ layerControl.addOverlay(mmlTausta, "Taustakartta");
 //   muut katkoviivat  -1   ohuin viiva
 // Näin kaksi punaista kumoutuvaa luokkaa erottuu sekä katkon tiheydellä
 // että paksuudella, ja katkoviiva kevenee kartalla.
-//   piste — symboli piirretään pienenä täytettynä pisteenä renkaan sijaan
+//   muoto — "rengas" (oletus), "piste" tai "kysymys"
 const LUOKAT = [
   { arvo: "ei_suojeluarvoja",          selite: "Ei suojeluarvoja / säilymisen edellytyksiä",
-    vari: "#000000", piste: true },
+    vari: "#000000", muoto: "piste" },
   { arvo: "kumottava",                 selite: "Kumottavalla alueella",     vari: "#7570b3",
     katko: "6 5", paksuusero: -1 },
   { arvo: "kumoutuva_mk_suojelukohde", selite: "Kumoutuva MK-suojelukohde", vari: "#e31a1c",
@@ -92,7 +92,8 @@ const LUOKAT = [
     katko: "4 4", paksuusero: -1 },
   { arvo: "paikallinen",               selite: "Suositus säilyttämisestä",  vari: "#1f78b4" },
   { arvo: "suojelukohde",              selite: "Suojelukohde",              vari: "#e31a1c" },
-  { arvo: "lisatietoja",               selite: "Tarvitaan lisätietoja",     vari: "#ff7f00" },
+  { arvo: "lisatietoja",               selite: "Tarvitaan lisätietoja",     vari: "#e31a1c",
+    muoto: "kysymys" },
 ];
 
 // Tyhjä arvo ei ole enää valittava luokka: kaavoittajalla jokaisella
@@ -416,61 +417,91 @@ const MARKKERI_SADE = 14;
 const PISTE_SADE = 7;
 
 // Kaavoittajan käymättä oleva kohde piirtyy ohuella viivalla, oma kirjaus
-// paksulla. Katkoviiva ei ole enää käytettävissä tähän (se merkitsee
+// paksulla. Katkoviiva ei ole käytettävissä tähän (se merkitsee
 // kumoutumista), eikä haalennus: 45 %:n peitolla symboli hukkui
 // maastokartan viivastoon ja kaavarasteriin.
 const POHJAN_VIIVA = 2;
 const OMAN_VIIVA   = 4;
 
+// Ikonin laatikko. Renkaan halkaisija on 28 px, joten reunoille jää tilaa
+// paksuimmalle viivalle ja valkoiselle hehkulle.
+const IKONI_KOKO = 36;
+
 /**
- * Luokka päättää värin ja viivatyylin, oma kirjaus vs. museon pohja peiton.
+ * Symbolin määrittely luokasta ja kirjauksen tilasta. Erillään piirrosta,
+ * jotta sama määrittely kelpaa sekä kartalle että selitteeseen.
  *
- * Rengas on oletus: se on täyttämätön, joten kaavarasteri näkyy symbolin
- * läpi. "Ei suojeluarvoja" piirretään pienenä mustana pisteenä — se on sama
- * esitystapa jolla Vastuumuseo jätti nämä kohteet mustiksi, ja pieni symboli
- * pitää kartan luettavana silloinkin kun luokka on yleisin.
- *
- * Ohut viiva = arvo on vielä Vastuumuseon pohja, kaavoittaja ei ole käynyt
- * kohdetta läpi. Pisteellä sama ero näkyy täyttönä: ääriviiva yksin =
- * pohja-arvo, täytetty piste = oma kirjaus.
+ * muoto  — luokan symboli: rengas, piste tai kysymysmerkki
+ * vari   — suojeluarvo
+ * katko  — kumoutuminen
+ * viiva  — ohut = vielä Vastuumuseon pohja, paksu = kaavoittajan oma kanta
+ * tayttö — pisteellä ja kysymysmerkillä sama ero näkyy täyttönä: ääriviiva
+ *          yksin = pohja-arvo, täytetty = oma kirjaus
  */
-function markerTyyli(props) {
+function symboliSpec(props) {
   const { arvot, oma } = nykyinenKanta(props);
-  const lk   = luokka(arvot[LUOKITUS_VIR]);
-  const vari = lk ? lk.vari : EI_KIRJAUSTA.vari;
-
-  if (lk && lk.piste) {
-    return {
-      radius: PISTE_SADE,
-      color: vari,
-      weight: 2,
-      opacity: 1,
-      fill: oma,
-      fillColor: vari,
-      fillOpacity: 1,
-      dashArray: null,
-    };
-  }
-
+  const lk    = luokka(arvot[LUOKITUS_VIR]);
+  const muoto = lk && lk.muoto ? lk.muoto : "rengas";
   return {
-    radius: MARKKERI_SADE,
-    // Väritys ääriviivassa, ei täytössä — kaavarasteri näkyy symbolin läpi
-    color: vari,
-    // paksuusero erottaa MK-suojelukohteen paikallisesta: molemmat ovat
-    // punaisia katkoviivarenkaita, eikä katkon tiheys yksin riitä erottamaan
-    // niitä kartalta nopealla silmäyksellä
-    weight: (oma ? OMAN_VIIVA : POHJAN_VIIVA) + (lk && lk.paksuusero ? lk.paksuusero : 0),
-    opacity: 1,
-    dashArray: lk && lk.katko ? lk.katko : null,
-    // Ei täyttöä lainkaan. Klikattavuus hoidetaan kartta-demo.css:n
-    // pointer-events-säännöllä, ei näkymättömällä täytöllä: Chrome ei pidä
-    // fill-opacity: 0 -täyttöä maalattuna, joten klikkaus menisi läpi.
-    fill: false,
+    muoto,
+    vari:   lk ? lk.vari : EI_KIRJAUSTA.vari,
+    viiva:  (oma ? OMAN_VIIVA : POHJAN_VIIVA) + (lk && lk.paksuusero ? lk.paksuusero : 0),
+    katko:  lk && lk.katko ? lk.katko : "",
+    tayttö: muoto !== "rengas" && oma,
   };
 }
 
+/**
+ * Symboli SVG:nä. Katkoviiva skaalataan säteestä, joten selitteen pienempi
+ * merkki näyttää samalta kuvioilta kuin karttasymboli.
+ *
+ * Rengas on täyttämätön, jotta kaavarasteri näkyy symbolin läpi.
+ */
+function symboliSvg(spec, koko, sade) {
+  const c = koko / 2;
+  const avaa = `<svg width="${koko}" height="${koko}" viewBox="0 0 ${koko} ${koko}" aria-hidden="true">`;
+
+  if (spec.muoto === "kysymys") {
+    const yhteinen = `x="${c}" y="${c}" text-anchor="middle" dominant-baseline="central" ` +
+      `font-family="sans-serif" font-weight="700" font-size="${(sade * 2.3).toFixed(1)}"`;
+    const tyyli = spec.tayttö
+      ? `fill="${spec.vari}"`
+      : `fill="none" stroke="${spec.vari}" stroke-width="1.3"`;
+    return `${avaa}<text ${yhteinen} ${tyyli}>?</text></svg>`;
+  }
+
+  if (spec.muoto === "piste") {
+    const r = PISTE_SADE * (sade / MARKKERI_SADE);
+    return `${avaa}<circle cx="${c}" cy="${c}" r="${r.toFixed(1)}" ` +
+      `fill="${spec.tayttö ? spec.vari : "none"}" ` +
+      `stroke="${spec.vari}" stroke-width="2" /></svg>`;
+  }
+
+  const suhde = sade / MARKKERI_SADE;
+  const kuvio = spec.katko
+    ? ` stroke-dasharray="${spec.katko.split(" ")
+        .map(x => (Number(x) * suhde).toFixed(1)).join(" ")}"`
+    : "";
+  return `${avaa}<circle cx="${c}" cy="${c}" r="${sade}" fill="none" ` +
+    `stroke="${spec.vari}" stroke-width="${spec.viiva}"${kuvio} /></svg>`;
+}
+
+/**
+ * Symbolit ovat divIcon-markkereita, eivät circleMarkereita: kysymysmerkki
+ * ei ole ympyrä. Ikonin vaihto onnistuu paikan päällä setIcon():lla, joten
+ * luokan symbolin muuttuminen tallennuksessa ei sulje popupia.
+ */
+function luoIkoni(props) {
+  return L.divIcon({
+    html:       symboliSvg(symboliSpec(props), IKONI_KOKO, MARKKERI_SADE),
+    className:  "kohde-symboli",
+    iconSize:   [IKONI_KOKO, IKONI_KOKO],
+    iconAnchor: [IKONI_KOKO / 2, IKONI_KOKO / 2],
+  });
+}
+
 function luoMarker(feature, latlng) {
-  return L.circleMarker(latlng, markerTyyli(feature.properties));
+  return L.marker(latlng, { icon: luoIkoni(feature.properties), keyboard: false });
 }
 
 /**
@@ -512,10 +543,10 @@ function paivitaLayer() {
   paivitaSelitys();
 }
 
-/** Päivittää yhden pisteen värin ilman että popup sulkeutuu. */
+/** Päivittää yhden symbolin ilman että popup sulkeutuu. */
 function paivitaMarkkeri(tunnus, props) {
   const layer = markkerit[String(tunnus)];
-  if (layer && layer.setStyle) layer.setStyle(markerTyyli(props));
+  if (layer && layer.setIcon) layer.setIcon(luoIkoni(props));
   paivitaSelitys();
 }
 
@@ -852,32 +883,19 @@ let selitysEl = null;
 const SELITE_SADE = 6;
 
 /**
- * Selitteen rengas SVG:nä, ei CSS-reunuksena: CSS:n dashed-reunus katkoo
- * ympyrän epätasaisesti eikä siihen saa katkon tiheyttä, joka on ainoa ero
- * kahden punaisen kumoutuvan luokan välillä. Katkoviiva skaalataan
- * karttasymbolin säteestä, jotta kuvio näyttää samalta kuin kartalla.
+ * Selitteen merkki piirretään samalla funktiolla kuin karttasymboli, jotta
+ * kuviot vastaavat toisiaan. Luokkarivit näytetään aina täytettyinä (= oman
+ * kirjauksen asu); alaosan ohut rengas näyttää eron pohja-arvoon.
  */
-// Luokkarivit piirretään yhtenäisellä viivanpaksuudella: kartan 2 px ja
-// 4 px eivät skaalaudu selitteen renkaaseen erottuvasti. Alaosan ohut
-// rengas näyttää eron pohja-arvon ja oman kirjauksen välillä.
-function selitysRengas(vari, katko, viiva) {
-  const suhde = SELITE_SADE / MARKKERI_SADE;
-  const kuvio = katko
-    ? ` stroke-dasharray="${katko.split(" ").map(x => (Number(x) * suhde).toFixed(1)).join(" ")}"`
-    : "";
-  return `<svg class="selitys-merkki" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
-      <circle cx="8" cy="8" r="${SELITE_SADE}" fill="none"
-              stroke="${vari}" stroke-width="${viiva}"${kuvio} /></svg>`;
-}
-
 function selitysMerkki(lk) {
-  if (lk.piste) {
-    return `<svg class="selitys-merkki" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
-        <circle cx="8" cy="8" r="4" fill="${lk.vari}" /></svg>`;
-  }
-  return selitysRengas(lk.vari, lk.katko || "", 2.5 + (lk.paksuusero || 0));
+  return symboliSvg({
+    muoto:  lk.muoto || "rengas",
+    vari:   lk.vari,
+    viiva:  2.5 + (lk.paksuusero || 0),
+    katko:  lk.katko || "",
+    tayttö: true,
+  }, 16, SELITE_SADE);
 }
-
 
 const SelitysControl = L.Control.extend({
   onAdd() {
@@ -920,7 +938,8 @@ function paivitaSelitys() {
 
   const alaosa = aktiivinen_nakyma === KAAVOITTAJA.avain
     ? `<p class="selitys-alaosa">
-         ${selitysRengas("#555555", "", 1.2)}
+         ${symboliSvg({muoto: "rengas", vari: "#555555", viiva: 1.2,
+                       katko: "", tayttö: false}, 16, SELITE_SADE)}
          ${pohjalla} kohdetta vielä Vastuumuseon pohjalla</p>`
     : "";
 

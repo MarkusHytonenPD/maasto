@@ -14,7 +14,9 @@ Kattaa demoversion erot tuotantoon:
   • katkoviiva = kumoutuvan alueen luokka, yhtenäinen = muut
   • kaikki suojelukohdeluokat punaisia, kumoutuvat erottuvat katkon tiheydellä
   • ohut viiva = arvo vielä museon pohjalla, paksu = oma kirjaus
-  • "ei suojeluarvoja" piirtyy mustana pisteenä: täyttö = oma kirjaus
+  • "ei suojeluarvoja" on musta piste, "tarvitaan lisätietoja" punainen
+    kysymysmerkki; molemmilla täyttö = oma kirjaus
+  • symbolit ovat SVG-divIconeita, ja ikoni vaihtuu paikan päällä
   • kaavoittajan luokitus ja kommentti tallentuvat Sheetiin tahona
     "Kaavoittaja (demo)", ei localStorageen
   • "ei arvoja" ei sekoitu luokkaan "ei_suojeluarvoja"
@@ -52,7 +54,7 @@ VARIT = {
     "kumoutuva_suojelukohde":    PUNAINEN,
     "paikallinen":               "#1f78b4",
     "suojelukohde":              PUNAINEN,
-    "lisatietoja":               "#ff7f00",
+    "lisatietoja":               PUNAINEN,
 }
 # Katkoviiva merkitsee kumoutumista, ei puuttuvaa kantaa
 KATKOT = {
@@ -204,8 +206,13 @@ def aja():
             ok("tyhjän väri tulee EI_KIRJAUSTA:sta, ei mustasta pisteestä",
                sivu.evaluate("luokkaVari('')") == EI_KIRJAUSTA_VARI,
                sivu.evaluate("luokkaVari('')"))
-            ok("ei_suojeluarvoja on pistesymboli",
-               sivu.evaluate("LUOKAT.find(l => l.arvo === 'ei_suojeluarvoja').piste") is True)
+            muodot = sivu.evaluate("Object.fromEntries(LUOKAT.filter(l => l.muoto)"
+                                   ".map(l => [l.arvo, l.muoto]))")
+            ok("omat muodot vain pisteellä ja kysymysmerkillä",
+               muodot == {"ei_suojeluarvoja": "piste", "lisatietoja": "kysymys"},
+               str(muodot))
+            ok("kysymysmerkki on punainen",
+               dict(luokat)["lisatietoja"] == PUNAINEN, dict(luokat)["lisatietoja"])
             ok("kaikki suojelukohdeluokat punaisia",
                all(v == PUNAINEN for a, v in luokat if "suojelukohde" in a),
                str([(a, v) for a, v in luokat if "suojelukohde" in a]))
@@ -222,7 +229,7 @@ def aja():
 
             def leveys(arvo):
                 return sivu.evaluate(
-                    "a => markerTyyli({tunnus: 'X', luokitus_museo: a}).weight", arvo)
+                    "a => symboliSpec({tunnus: 'X', luokitus_museo: a}).viiva", arvo)
             ok("MK on paksuin", leveys("kumoutuva_mk_suojelukohde") == 3.5,
                str(leveys("kumoutuva_mk_suojelukohde")))
             ok("yhtenäinen viiva on perusleveys", leveys("suojelukohde") == 2,
@@ -236,18 +243,22 @@ def aja():
 
             print("\n── Vastuumuseon kanta lähtöarvona ──")
             def tyyli(tunnus):
-                return sivu.evaluate(
-                    "t => ({vari: markkerit[t].options.color,"
-                    "       katko: markkerit[t].options.dashArray,"
-                    "       tayttö: markkerit[t].options.fill,"
-                    "       paksuus: markkerit[t].options.weight,"
-                    "       sade: markkerit[t].options.radius})", str(tunnus))
+                return sivu.evaluate("""t => {
+                  const f = geojsonData.features.find(
+                    x => String(x.properties.tunnus) === t);
+                  const spec = symboliSpec(f.properties);
+                  return {vari: spec.vari, katko: spec.katko, tayttö: spec.tayttö,
+                          paksuus: spec.viiva, muoto: spec.muoto,
+                          ikoni: markkerit[t].options.icon.options.html};
+                }""", str(tunnus))
 
             a = tyyli(tyhja_t)
             ok(f"museon tyhjä → musta piste (kohde {tyhja_t})",
                a["vari"] == VARIT["ei_suojeluarvoja"], a["vari"])
-            ok("…pienellä säteellä", a["sade"] == 7, str(a["sade"]))
+            ok("…pisteen muotoisena", a["muoto"] == "piste", a["muoto"])
             ok("…ja täyttämättä, koska omaa kantaa ei ole", a["tayttö"] is False)
+            ok("…ja ikoni on piirretty markkeriin",
+               'fill="none"' in a["ikoni"] and "#000000" in a["ikoni"])
 
             b = tyyli(vanha_t)
             ok(f"vanhaa potentiaalia ei lueta pohjaksi (kohde {vanha_t}, potentiaali={vanha_arvo})",
@@ -303,6 +314,20 @@ def aja():
             ok("väri päivittyi heti", d["vari"] == VARIT["kumottava"], d["vari"])
             ok("viiva paksuni omaksi kirjaukseksi", d["paksuus"] == 3, str(d["paksuus"]))
             ok("katkoviiva tuli luokasta", d["katko"] == KATKOT["kumottava"], str(d["katko"]))
+            ok("ikoni vaihtui paikan päällä, popup ei sulkeutunut",
+               "#7570b3" in d["ikoni"] and sivu.locator(".pu-vir-lomake").count() == 1)
+
+            print("\n── Kysymysmerkki ──")
+            sivu.locator(".pu-vir-lomake .pu-napit button",
+                         has_text="Tarvitaan lisätietoja").click()
+            sivu.locator(".pu-lomake-footer button").click()
+            sivu.wait_for_selector(".pu-lomake-viesti.onnistui", timeout=8000)
+            k = tyyli(tyhja_t)
+            ok("luokan vaihto vaihtoi symbolin muodon", k["muoto"] == "kysymys", k["muoto"])
+            ok("kysymysmerkki piirtyy tekstinä", ">?</text>" in k["ikoni"])
+            ok("…punaisella täytöllä, koska kanta on oma",
+               f'fill="{PUNAINEN}"' in k["ikoni"], k["ikoni"][-90:])
+            ok("…eikä popup sulkeutunut", sivu.locator(".pu-vir-lomake").count() == 1)
             sivu.evaluate("map.closePopup()")
 
             print("\n── Selitelaatikko ──")
@@ -314,7 +339,7 @@ def aja():
             ok("määrien summa = kohteiden määrä",
                sum(maarat) == len(data["features"]), f"{sum(maarat)} / {len(data['features'])}")
             pohja_teksti = sivu.locator(".selitys-alaosa").inner_text()
-            odotettu_pohja = len(data["features"]) - 2      # oma_t Sheetistä + juuri tallennettu
+            odotettu_pohja = len(data["features"]) - 2      # oma_t Sheetistä + juuri tallennetut
             ok("museon pohjalla -laskuri", str(odotettu_pohja) in pohja_teksti, pohja_teksti.strip())
 
             print("\n── Viranomaisnäkymä ──")
@@ -353,8 +378,9 @@ def aja():
             ok("jokaisella kohteella on luokka",
                all(arvo for _, arvo, _ in ladattu), "tyhjiä: " +
                str(sum(1 for _, a, _ in ladattu if not a)))
-            ok("tallennettu luokka mukana",
-               dict((t, a) for t, a, _ in ladattu)[str(tyhja_t)] == "kumottava")
+            ok("viimeisin tallennettu luokka mukana",
+               dict((t, a) for t, a, _ in ladattu)[str(tyhja_t)] == "lisatietoja",
+               dict((t, a) for t, a, _ in ladattu)[str(tyhja_t)])
             ok("kommentti mukana",
                dict((t, k) for t, _, k in ladattu)[str(tyhja_t)] == "Purkualue, ei säilytettävää")
             ok("vanha potentiaali korvautui museon pohjalla",
