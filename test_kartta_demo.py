@@ -214,15 +214,22 @@ def aja():
             ok("katkoviiva vain kumoutuvan alueen luokilla", katkot == KATKOT, str(katkot))
             ok("kaksi punaista kumoutuvaa erottuu katkon tiheydellä",
                KATKOT["kumoutuva_mk_suojelukohde"] != KATKOT["kumoutuva_suojelukohde"])
-            paksut = sivu.evaluate("Object.fromEntries(LUOKAT.filter(l => l.lisapaksuus)"
-                                   ".map(l => [l.arvo, l.lisapaksuus]))")
-            ok("…ja lisäksi viivan paksuudella, vain MK-suojelukohteella",
-               paksut == {"kumoutuva_mk_suojelukohde": 1.5}, str(paksut))
-            ok("MK piirtyy paksummalla viivalla kuin muut samassa tilassa",
-               sivu.evaluate("markerTyyli({tunnus: 'X', luokitus_museo: "
-                             "'kumoutuva_mk_suojelukohde'}).weight") == 3.5,
-               str(sivu.evaluate("markerTyyli({tunnus: 'X', luokitus_museo: "
-                                 "'kumoutuva_mk_suojelukohde'}).weight")))
+            paksut = sivu.evaluate("Object.fromEntries(LUOKAT.filter(l => l.paksuusero)"
+                                   ".map(l => [l.arvo, l.paksuusero]))")
+            ok("…ja lisäksi viivan paksuudella",
+               paksut == {"kumottava": -1, "kumoutuva_mk_suojelukohde": 1.5,
+                          "kumoutuva_suojelukohde": -1}, str(paksut))
+
+            def leveys(arvo):
+                return sivu.evaluate(
+                    "a => markerTyyli({tunnus: 'X', luokitus_museo: a}).weight", arvo)
+            ok("MK on paksuin", leveys("kumoutuva_mk_suojelukohde") == 3.5,
+               str(leveys("kumoutuva_mk_suojelukohde")))
+            ok("yhtenäinen viiva on perusleveys", leveys("suojelukohde") == 2,
+               str(leveys("suojelukohde")))
+            ok("muut katkoviivat ovat ohuimmat",
+               leveys("kumoutuva_suojelukohde") == 1 and leveys("kumottava") == 1,
+               f"{leveys('kumoutuva_suojelukohde')} / {leveys('kumottava')}")
             ok("'ei arvoja' luetaan tyhjäksi, ei ei_suojeluarvoja-luokaksi",
                sivu.evaluate("normalisoiLuokka('ei arvoja')") == ""
                and sivu.evaluate("normalisoiLuokka('ei_suojeluarvoja')") == "ei_suojeluarvoja")
@@ -251,7 +258,8 @@ def aja():
                c["vari"] == VARIT["kumottava"], c["vari"])
             ok("…kumoutuvan luokan katkoviivalla",
                c["katko"] == KATKOT["kumottava"], str(c["katko"]))
-            ok("…ja paksulla viivalla, koska kanta on oma", c["paksuus"] == 4, str(c["paksuus"]))
+            ok("…ja paksummalla viivalla, koska kanta on oma",
+               c["paksuus"] == 3, str(c["paksuus"]))
 
             d0 = tyyli(paikallinen_museo_t)
             ok(f"museon pohjalla oleva rengas on ohut (kohde {paikallinen_museo_t})",
@@ -293,7 +301,7 @@ def aja():
                    r.get("kommentti_vir") == "Purkualue, ei säilytettävää", str(r.get("kommentti_vir")))
             d = tyyli(tyhja_t)
             ok("väri päivittyi heti", d["vari"] == VARIT["kumottava"], d["vari"])
-            ok("viiva paksuni omaksi kirjaukseksi", d["paksuus"] == 4, str(d["paksuus"]))
+            ok("viiva paksuni omaksi kirjaukseksi", d["paksuus"] == 3, str(d["paksuus"]))
             ok("katkoviiva tuli luokasta", d["katko"] == KATKOT["kumottava"], str(d["katko"]))
             sivu.evaluate("map.closePopup()")
 

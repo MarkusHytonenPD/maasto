@@ -73,19 +73,22 @@ const layerControl = L.control.layers(
 //           siitä kumoutuvatko ne.
 //   katko — kumoutuminen. Kumoutuvan alueen luokat piirtyvät katkoviivalla,
 //           muut yhtenäisellä.
-// Kaksi punaista katkoviivaluokkaa erottaa toisistaan katkon tiheys ja
-// viivan paksuus: MK-suojelukohteella on pitkä katko ja paksumpi viiva
-// (lisapaksuus), paikallisella lyhyt katko ja perusviiva.
+// Kolmiportainen viivanpaksuus (paksuusero lisätään perusviivaan):
+//   MK-suojelukohde  +1,5  pitkä katko, paksuin viiva
+//   yhtenäiset         0
+//   muut katkoviivat  -1   ohuin viiva
+// Näin kaksi punaista kumoutuvaa luokkaa erottuu sekä katkon tiheydellä
+// että paksuudella, ja katkoviiva kevenee kartalla.
 //   piste — symboli piirretään pienenä täytettynä pisteenä renkaan sijaan
 const LUOKAT = [
   { arvo: "ei_suojeluarvoja",          selite: "Ei suojeluarvoja / säilymisen edellytyksiä",
     vari: "#000000", piste: true },
   { arvo: "kumottava",                 selite: "Kumottavalla alueella",     vari: "#7570b3",
-    katko: "6 5" },
+    katko: "6 5", paksuusero: -1 },
   { arvo: "kumoutuva_mk_suojelukohde", selite: "Kumoutuva MK-suojelukohde", vari: "#e31a1c",
-    katko: "12 6", lisapaksuus: 1.5 },
+    katko: "12 6", paksuusero: 1.5 },
   { arvo: "kumoutuva_suojelukohde",    selite: "Kumoutuva suojelukohde",    vari: "#e31a1c",
-    katko: "4 4" },
+    katko: "4 4", paksuusero: -1 },
   { arvo: "paikallinen",               selite: "Suositus säilyttämisestä",  vari: "#1f78b4" },
   { arvo: "suojelukohde",              selite: "Suojelukohde",              vari: "#e31a1c" },
   { arvo: "lisatietoja",               selite: "Tarvitaan lisätietoja",     vari: "#ff7f00" },
@@ -452,10 +455,10 @@ function markerTyyli(props) {
     radius: MARKKERI_SADE,
     // Väritys ääriviivassa, ei täytössä — kaavarasteri näkyy symbolin läpi
     color: vari,
-    // lisapaksuus erottaa MK-suojelukohteen paikallisesta: molemmat ovat
+    // paksuusero erottaa MK-suojelukohteen paikallisesta: molemmat ovat
     // punaisia katkoviivarenkaita, eikä katkon tiheys yksin riitä erottamaan
     // niitä kartalta nopealla silmäyksellä
-    weight: (oma ? OMAN_VIIVA : POHJAN_VIIVA) + (lk && lk.lisapaksuus ? lk.lisapaksuus : 0),
+    weight: (oma ? OMAN_VIIVA : POHJAN_VIIVA) + (lk && lk.paksuusero ? lk.paksuusero : 0),
     opacity: 1,
     dashArray: lk && lk.katko ? lk.katko : null,
     // Ei täyttöä lainkaan. Klikattavuus hoidetaan kartta-demo.css:n
@@ -871,7 +874,7 @@ function selitysMerkki(lk) {
     return `<svg class="selitys-merkki" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
         <circle cx="8" cy="8" r="4" fill="${lk.vari}" /></svg>`;
   }
-  return selitysRengas(lk.vari, lk.katko || "", 2.5 + (lk.lisapaksuus || 0));
+  return selitysRengas(lk.vari, lk.katko || "", 2.5 + (lk.paksuusero || 0));
 }
 
 
