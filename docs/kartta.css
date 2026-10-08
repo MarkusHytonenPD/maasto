@@ -126,6 +126,22 @@ body { font-family: sans-serif; }
 }
 .pu-vir-tyhja { font-size: 11px; color: #999; font-style: italic; }
 
+/* ── Kioski-tiedot ─────────────────────────────────────── */
+.pu-kioski {
+  margin-top: 10px;
+  padding: 6px 9px;
+  border-left: 3px solid #8c6d3f;
+  background: #faf7f2;
+  border-radius: 0 3px 3px 0;
+  font-size: 12px;
+}
+.pu-kioski summary { cursor: pointer; font-weight: 600; color: #333; }
+.pu-kioski-merk { font-weight: normal; color: #666; }
+.pu-kioski table { border-collapse: collapse; width: 100%; margin: 6px 0 4px; }
+.pu-kioski td { padding: 2px 5px; border-bottom: 1px solid #ece6dc; vertical-align: top; }
+.pu-kioski td:first-child { color: #555; font-weight: 600; width: 1%; white-space: nowrap; }
+.pu-kioski a { font-size: 11px; }
+
 /* ── Tahojen lausuntotaulu ────────────────────────────── */
 .pu-taho td:first-child { white-space: nowrap; }
 .pu-taho-merkki {

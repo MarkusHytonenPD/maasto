@@ -20,6 +20,7 @@ test_kartta_luokitus.py.
   • oman nimen muistaminen (toisen tahon nimeä ei esitäytetä)
   • XSS: attribuuttidatan HTML ei suoriudu
   • datan lähde: Pages-kopio ensin, raw.githubusercontent.com varalla
+  • Kioski-tiedot: osio, linkki, XSS ja puuttuva kioski.json
 
 Ajo:
     python3 test_kartta.py
@@ -623,6 +624,64 @@ def main():
     tulos6 = testaa_datan_lahde(base, data, virheet)
     for nimi, ehto, lisa in tulos6:
         ok(nimi, ehto, lisa)
+
+    # ══ 7. Kioski-tiedot ═════════════════════════════════════════
+    # kioski.json on valinnainen: osiot 1–6 ajettiin ilman sitä
+    print("\n7. Kioski-tiedot popupissa")
+    kioski_json = base / "projektit" / PROJEKTI / "data" / "kioski.json"
+    kioski_json.write_text(json.dumps({T0: {
+        "kohde_id": 241364,
+        "url": "https://www.kulttuuriymparisto.fi/sovellus/asp/k3/"
+               "k31_kohde_det.aspx?KOHDE_ID=241364",
+        "nimi": "Pilpan kanava",
+        "valtakunnalliset": ["RKY-alue", "VAMA-alue"],
+        "merkittavyys": "valtakunnallisesti merkittävä",
+        "kuvaus": XSS,
+        "suojelutilanne": "Rantaosayleiskaava\nMaakuntakaava",
+    }}, ensure_ascii=False), encoding="utf-8")
+
+    def testit7(sivu):
+        avaa(sivu, T0)
+        ok("Kioski-osio popupissa",
+           sivu.locator(".pu .pu-kioski").count() == 1)
+        ok("osio on oletuksena kiinni",
+           sivu.eval_on_selector(".pu-kioski", "e => e.open") is False)
+        summary = " ".join(sivu.text_content(".pu-kioski summary").split())
+        ok("summary-teksti",
+           summary == "Kioski: Pilpan kanava · valtakunnallisesti merkittävä", summary)
+        otsikot = sivu.eval_on_selector_all(".pu-kioski td:first-child",
+                                            "e => e.map(x => x.textContent)")
+        ok("rivit järjestyksessä, tyhjät pois",
+           otsikot == ["Merkittävyys", "Valtakunnalliset inventoinnit",
+                       "Kuvaus", "Suojelutilanne"], otsikot)
+        ok("rivinvaihdot <br>-tageina",
+           sivu.eval_on_selector_all(".pu-kioski td:last-child br", "e => e.length") >= 2)
+        linkki = sivu.eval_on_selector(
+            ".pu-kioski a", "e => ({href: e.href, target: e.target, rel: e.rel})")
+        ok("linkki Kioskiin oikealla KOHDE_ID:llä",
+           linkki["href"].endswith("KOHDE_ID=241364") and linkki["target"] == "_blank"
+           and linkki["rel"] == "noopener", linkki)
+        ok("XSS ei suoriutunut Kioski-tiedoista",
+           sivu.evaluate("window.HAKKEROITU === undefined")
+           and "<script>" in sivu.eval_on_selector(".pu-kioski", "e => e.textContent"))
+
+        avaa(sivu, T_TYHJA)
+        ok("kohteella ilman Kioski-tietoja ei ole osiota",
+           sivu.locator(".pu-kioski").count() == 0)
+
+    aja("", {"status": 200, "body": "{}"}, testit7)
+
+    kioski_json.unlink()
+
+    def testit7b(sivu):
+        ok("ilman kioski.jsonia kartta latautuu",
+           sivu.evaluate("geojsonData.features.length") == len(piirteet)
+           and sivu.evaluate("Object.keys(kioskiData).length") == 0)
+        avaa(sivu, T0)
+        ok("ilman kioski.jsonia osiota ei ole",
+           sivu.locator(".pu-kioski").count() == 0)
+
+    aja("", {"status": 200, "body": "{}"}, testit7b)
 
     if virheet:
         print("\nKonsolivirheet:")

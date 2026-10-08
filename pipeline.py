@@ -875,7 +875,7 @@ def _docs_polku() -> Path:
 
 def kopioi_docsiin() -> list:
     """
-    Kopioi config.json:in ja kohteet.geojsonin docs/[projekti]/:iin ja
+    Kopioi config.json:in, kohteet.geojsonin ja kioski.json:in (jos on) docs/[projekti]/:iin ja
     palauttaa git add:iin annettavat suhteelliset polut.
 
     Kartta lukee datan ensisijaisesti GitHub Pagesista, koska Pages
@@ -891,6 +891,7 @@ def kopioi_docsiin() -> list:
     for lahde, kohde in (
         (_config_polku(),                docs / "config.json"),
         (DATA_POLKU / "kohteet.geojson", docs / "data" / "kohteet.geojson"),
+        (DATA_POLKU / "kioski.json",     docs / "data" / "kioski.json"),
     ):
         if not lahde.is_file():
             continue

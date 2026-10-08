@@ -191,6 +191,9 @@ let PROJEKTI        = "";
 let projektiConfig  = {};
 let geojsonData     = null;
 let geojsonLayer    = null;
+// Kioski 3.0 -kohdetiedot tunnuksittain (data/kioski.json, kioski_tuonti.py).
+// Valinnainen: jos tiedostoa ei ole, osio jää pois popupista.
+let kioskiData      = {};
 // KAAVOITTAJA.avain ("kaav") tai tahon avain ("lvv" | "museo" | "liitto")
 let aktiivinen_nakyma = KAAVOITTAJA.avain;
 const markkerit     = {};                  // tunnus → layer
@@ -833,6 +836,48 @@ function popupLomake(feature, tunnus, tallentaja) {
   return el;
 }
 
+// ═══════════════════════════════════════════════════════════════
+//  KIOSKI-TIEDOT
+//  Museon Kioski 3.0 -rekisterin tiedot omana, oletuksena suljettuna
+//  osionaan. Linkki vie Kioskiin, mutta toimii vain kirjautuneelle.
+// ═══════════════════════════════════════════════════════════════
+
+const KIOSKI_KENTAT = [
+  ["merkittavyys",     "Merkittävyys"],
+  ["arvot",            "Arvot"],
+  ["valtakunnalliset", "Valtakunnalliset inventoinnit"],
+  ["kuvaus",           "Kuvaus"],
+  ["historia",         "Historia"],
+  ["suojelutilanne",   "Suojelutilanne"],
+  ["arviointi",        "Arviointi"],
+  ["lahteet",          "Lähteet"],
+];
+
+function popupKioski(tunnus) {
+  const k = kioskiData[tunnus];
+  if (!k) return null;
+
+  const rivit = KIOSKI_KENTAT
+    .map(([avain, otsikko]) => {
+      const arvo = Array.isArray(k[avain]) ? k[avain].join("\n") : k[avain];
+      if (tyhja(arvo)) return "";
+      // Rivinvaihdot säilyvät: suojelutilanteessa on kaava per rivi
+      const teksti = esc(arvo).replace(/\n/g, "<br>");
+      return `<tr><td>${esc(otsikko)}</td><td>${teksti}</td></tr>`;
+    })
+    .join("");
+
+  const el = document.createElement("details");
+  el.className = "pu-kioski";
+  el.innerHTML = `
+    <summary>Kioski: ${esc(k.nimi || "")}
+      ${k.merkittavyys ? `<span class="pu-kioski-merk">· ${esc(k.merkittavyys)}</span>` : ""}
+    </summary>
+    <table>${rivit}</table>
+    ${k.url ? `<a href="${esc(k.url)}" target="_blank" rel="noopener">Avaa Kioskissa (kohde ${esc(k.kohde_id)})</a>` : ""}`;
+  return el;
+}
+
 function luoPopup(feature, layer) {
   const props  = feature.properties;
   const tunnus = String(props[TUNNUS] ?? "");
@@ -846,6 +891,9 @@ function luoPopup(feature, layer) {
 
   const attr = popupAttribuutit(props);
   if (attr) el.appendChild(attr);
+
+  const kioski = popupKioski(tunnus);
+  if (kioski) el.appendChild(kioski);
 
   const kaavoittajanNakyma = aktiivinen_nakyma === KAAVOITTAJA.avain;
 
@@ -1069,7 +1117,13 @@ async function init() {
 
   // Sheetin nykytila ennen ensimmäistä piirtoa: sekä kaavoittajan omat
   // kirjaukset että Vastuumuseon pohja-arvot tulevat sieltä.
-  await haeKommentit();
+  // Kioski-tiedot ennen piirtoa, jotta ne ovat mukana ensimmäisissä popupeissa
+  await Promise.all([
+    haeKommentit(),
+    haeData("data/kioski.json")
+      .then(d => { kioskiData = d || {}; })
+      .catch(() => { kioskiData = {}; }),   // ei Kioski-tietoja tässä projektissa
+  ]);
 
   try {
     geojsonData = await haeData("data/kohteet.geojson");
