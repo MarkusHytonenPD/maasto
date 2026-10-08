@@ -44,7 +44,8 @@ body { font-family: sans-serif; }
   border-top: 1px solid #eee;
   color: #333;
 }
-.nakyma-control button.toiminto:hover { background: #f0f0f0; }
+.nakyma-control button.toiminto:hover:not(:disabled) { background: #f0f0f0; }
+.nakyma-control button.toiminto:disabled { color: #aaa; cursor: default; }
 
 /* ── Kohdesymbolit ────────────────────────────────────── */
 /* Symbolit ovat divIcon-markkereita, joiden sisällä on SVG (kartta.js
@@ -182,13 +183,16 @@ body { font-family: sans-serif; }
   border-radius: 50%;
   background: var(--lk-vari, #999);
 }
-.pu-napit button:hover { background: #f0f0f0; }
+.pu-napit button:hover:not(:disabled) { background: #f0f0f0; }
 .pu-napit button.aktiivinen {
   border-color: #333;
   background: #333;
   color: white;
   font-weight: 600;
 }
+/* Lukittu lomake: valittu luokka erottuu yhä, muut himmenevät */
+.pu-napit button:disabled { cursor: default; color: #aaa; }
+.pu-napit button.aktiivinen:disabled { background: #777; border-color: #777; color: white; }
 
 /* ── Viranomaisen lomake ──────────────────────────────── */
 .pu-vir-lomake { background: #eef2f7; }
@@ -246,6 +250,7 @@ body { font-family: sans-serif; }
 /* Merkit piirretään SVG:nä kartta.js:ssä (symboliSvg) — CSS:n
    dashed-reunus ei anna katkon tiheyttä. */
 .selitys-lista svg { flex: none; display: block; }
+.selitys-haussa { margin-top: 3px; color: #888; font-style: italic; }
 
 /* ── Museon pohja-arvon merkintä popupissa ────────────── */
 .pu-pohja {

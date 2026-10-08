@@ -31,5 +31,6 @@
         "nimi",
         "käyttötarkoitus (vanha luokitus) (selite)",
         "vuosi"
-    ]
+    ],
+    "kirjaukset_lukittu": true
 }

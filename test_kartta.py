@@ -21,6 +21,8 @@ test_kartta_luokitus.py.
   • XSS: attribuuttidatan HTML ei suoriudu
   • datan lähde: Pages-kopio ensin, raw.githubusercontent.com varalla
   • Kioski-tiedot: osio, linkki, XSS ja puuttuva kioski.json
+  • hidas Sheets-haku: kohteet heti, lomake lukossa kunnes kirjaukset tulevat
+  • lukitut kirjaukset: jäädytetty tiedosto, ei Apps Script -kutsuja, lomakkeet harmaana
 
 Ajo:
     python3 test_kartta.py
@@ -268,8 +270,13 @@ def main():
                      "kommentti_vir": "Liiton kanta", "nimi_vir": "Liiton Tarkastaja"}]
 
     virheet, postit = [], []
+    pidatetyt = []        # Sheets-haut, joihin testi vastaa itse
+    get_haut  = []        # kaikki Apps Scriptin GET-pyynnöt
 
-    def aja(apps_url, post_vastaus, testit):
+    def aja(apps_url, post_vastaus, testit, get_vastaus=None, lukittu=False):
+        """get_vastaus: None = SHEETS_RIVIT, "pidata" = testi vastaa itse,
+        muuten route.fulfill():n parametrit. lukittu: config.jsoniin
+        "kirjaukset_lukittu": true."""
         with sync_playwright() as pw:
             selain = pw.chromium.launch()
             sivu = selain.new_page(viewport={"width": 1000, "height": 950})
@@ -288,6 +295,8 @@ def main():
                 if polku == f"projektit/{PROJEKTI}/config.json":
                     cfg = json.loads((base / polku).read_text(encoding="utf-8"))
                     cfg["apps_script_url"] = apps_url
+                    if lukittu:
+                        cfg["kirjaukset_lukittu"] = True
                     route.fulfill(status=200, body=json.dumps(cfg),
                                   content_type="application/json")
                     return
@@ -303,6 +312,12 @@ def main():
                     postit.append({"headers": pyynto.headers,
                                    "body": json.loads(pyynto.post_data)})
                     route.fulfill(**post_vastaus)
+                    return
+                get_haut.append(pyynto.url)
+                if get_vastaus == "pidata":
+                    pidatetyt.append(route)
+                elif get_vastaus:
+                    route.fulfill(**get_vastaus)
                 else:
                     route.fulfill(status=200, content_type="application/json",
                                   body=json.dumps({"status": "ok", "rivit": SHEETS_RIVIT}))
@@ -682,6 +697,120 @@ def main():
            sivu.locator(".pu-kioski").count() == 0)
 
     aja("", {"status": 200, "body": "{}"}, testit7b)
+
+    # ══ 8. Hidas Sheets-haku ════════════════════════════════════
+    # Apps Script vastaa kylmänä jopa puolessa minuutissa: kohteiden on
+    # piirryttävä heti ja kirjausten tultava perässä
+    print("\n8. Kohteet piirtyvät ennen Sheetsin vastausta")
+
+    def vapauta_sheets():
+        pidatetyt.pop().fulfill(status=200, content_type="application/json",
+                                body=json.dumps({"status": "ok", "rivit": SHEETS_RIVIT}))
+
+    def testit8(sivu):
+        ok("Sheets-haku on kesken", len(pidatetyt) == 1)
+        ok("kohteet piirtyivät odottamatta Sheetsiä",
+           sivu.eval_on_selector_all(".kohde-symboli", "e => e.length") == len(piirteet))
+        ok("selite kertoo haun olevan kesken",
+           sivu.locator(".selitys-haussa").count() == 1)
+        ok("latausnappi lukossa haun ajan",
+           sivu.eval_on_selector("#lataa-suositukset", "e => e.disabled") is True)
+
+        sivu.click('.nakyma-control button[data-nakyma="lvv"]')
+        sivu.wait_for_timeout(600)
+        ok("haun aikana väri GeoJSONista", vari(sivu, T0) == "#e31a1c", vari(sivu, T0))
+        avaa(sivu, T0)
+        sivu.wait_for_selector(".pu-vir-lomake", timeout=5000)
+        ok("lomake lukossa haun ajan",
+           sivu.eval_on_selector(".pu-lomake-footer button", "e => e.disabled") is True
+           and sivu.eval_on_selector(".pu-vir-lomake textarea", "e => e.disabled") is True
+           and "Haetaan" in sivu.text_content(".pu-lomake-viesti"),
+           sivu.text_content(".pu-lomake-viesti"))
+
+        vapauta_sheets()
+        sivu.wait_for_function(
+            "() => !document.querySelector('.pu-lomake-footer button').disabled",
+            timeout=5000)
+        ok("auki ollut popup päivittyi Sheetsin arvoilla",
+           sivu.input_value(".pu-vir-lomake textarea") == "Sheetsistä haettu tuore kommentti"
+           and "Liiton kanta" in sivu.text_content(".pu-vir"))
+        ok("popup pysyi auki", sivu.locator(".leaflet-popup").count() == 1)
+        ok("väri päivittyi Sheetsin arvoon", vari(sivu, T0) == "#1f78b4", vari(sivu, T0))
+        ok("symboli kartalla päivittyi", sivu.evaluate(f"""() =>
+            markkerit[{json.dumps(T0)}].getElement().innerHTML.includes('#1f78b4')"""))
+        ok("selitteen hakuviesti poistui",
+           sivu.locator(".selitys-haussa").count() == 0)
+        ok("latausnappi vapautui",
+           sivu.eval_on_selector("#lataa-suositukset", "e => e.disabled") is False)
+
+    aja(ENDPOINT, {"status": 200, "body": "{}"}, testit8, get_vastaus="pidata")
+
+    print("\n9. Sheets-haku epäonnistuu")
+
+    def testit9(sivu):
+        sivu.click('.nakyma-control button[data-nakyma="lvv"]')
+        sivu.wait_for_timeout(600)
+        avaa(sivu, T0)
+        sivu.wait_for_selector(".pu-vir-lomake", timeout=5000)
+        ok("epäonnistunut haku vapauttaa lomakkeen GeoJSONin arvoilla",
+           sivu.eval_on_selector(".pu-lomake-footer button", "e => e.disabled") is False
+           and sivu.input_value(".pu-vir-lomake textarea").startswith("Arvokas pihapiiri"))
+        ok("latausnappi käytössä",
+           sivu.eval_on_selector("#lataa-suositukset", "e => e.disabled") is False)
+
+    aja(ENDPOINT, {"status": 200, "body": "{}"}, testit9,
+        get_vastaus={"status": 500, "body": "palvelinvirhe"})
+
+    # ══ 10. Lausuntokierros päättynyt ═══════════════════════════
+    # Kirjaukset jäädytetty data/kirjaukset.json:iin (jaadyta_kirjaukset.py)
+    print("\n10. Lukitut kirjaukset")
+    kirjaukset_json = base / "projektit" / PROJEKTI / "data" / "kirjaukset.json"
+    kirjaukset_json.write_text(json.dumps({
+        "status": "ok", "haettu": "2026-10-08T15:00:00+03:00",
+        "rivit": SHEETS_RIVIT + [{"tunnus": T0, "taho": "Kaavoittaja",
+                                  "luokitus_vir": "suojelukohde",
+                                  "kommentti_vir": "Jäädytetty perustelu",
+                                  "nimi_vir": "Kaavoittaja K"}],
+    }, ensure_ascii=False), encoding="utf-8")
+    get_haut.clear()
+
+    def testit10(sivu):
+        ok("Apps Scriptiä ei kutsuttu", get_haut == [], get_haut)
+        ok("kirjaukset luettiin jäädytetystä tiedostosta",
+           sorted(sivu.evaluate("Object.keys(sheetsKommentit)"))
+           == sorted([f"{T0}|lvv", f"{T0}|liitto", f"{T0}|kaav"]))
+        ok("kaavoittajan väri jäädytetystä kirjauksesta", vari(sivu, T0) == "#e31a1c",
+           vari(sivu, T0))
+        ok("latausnappi käytössä",
+           sivu.eval_on_selector("#lataa-suositukset", "e => e.disabled") is False)
+
+        avaa(sivu, T0)
+        sivu.wait_for_selector(".pu-vir-lomake", timeout=5000)
+        lukossa = sivu.evaluate("""() => [...document.querySelectorAll(
+            '.pu-vir-lomake button, .pu-vir-lomake textarea, .pu-vir-lomake input')]
+            .every(e => e.disabled)""")
+        ok("kaavoittajan lomake harmaana", lukossa)
+        ok("lukittu lomake näyttää jäädytetyn kirjauksen",
+           sivu.input_value(".pu-vir-lomake textarea") == "Jäädytetty perustelu"
+           and sivu.eval_on_selector_all(".pu-vir-lomake .pu-napit button.aktiivinen",
+                                         "e => e.map(x => x.textContent)") == ["Suojelukohde"])
+        viesti = sivu.text_content(".pu-lomake-viesti")
+        ok("syy ja jäädytyksen päivä kerrotaan",
+           "päättynyt" in viesti and "8.10.2026" in viesti, viesti)
+
+        sivu.evaluate("map.closePopup()")
+        sivu.click('.nakyma-control button[data-nakyma="lvv"]')
+        sivu.wait_for_timeout(600)
+        avaa(sivu, T0)
+        sivu.wait_for_selector(".pu-vir-lomake", timeout=5000)
+        ok("viranomaisen lomake harmaana",
+           sivu.eval_on_selector(".pu-lomake-footer button", "e => e.disabled") is True
+           and sivu.input_value(".pu-vir-lomake textarea") == "Sheetsistä haettu tuore kommentti")
+        ok("muiden tahojen kirjaukset näkyvät",
+           "Liiton kanta" in sivu.text_content(".pu-vir"))
+
+    aja(ENDPOINT, {"status": 200, "body": "{}"}, testit10, lukittu=True)
+    kirjaukset_json.unlink()
 
     if virheet:
         print("\nKonsolivirheet:")
