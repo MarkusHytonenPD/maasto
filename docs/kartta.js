@@ -204,6 +204,13 @@ const markkerit     = {};                  // tunnus → layer
 // kohteesta toisistaan riippumatta.
 let sheetsKommentit = {};
 
+// Kohteet piirretään heti GeoJSONin arvoilla, ja Sheetin kirjaukset tulevat
+// perässä (Apps Script vastaa kylmänä jopa puolessa minuutissa). Haun ajan
+// lomakkeet ja lataus ovat lukossa, jottei vanhentuneella esitäytöllä
+// tallennettu kirjaus korvaa Sheetin tuoreempaa riviä.
+let kirjauksetHaussa = false;
+const KIRJAUSTEN_AIKARAJA_MS = 60000;
+
 /** Avain sheetsKommentit-hakuun. */
 function kommenttiAvain(tunnus, tahoAvain) {
   return `${tunnus}|${tahoAvain}`;
@@ -283,14 +290,35 @@ function appsScriptUrl() {
   return tyhja(url) ? "" : String(url).trim();
 }
 
-/** Hakee Sheetin nykytilan Apps Scriptin doGet-rajapinnasta. */
+/**
+ * Lausuntokierros päättynyt: kirjaukset luetaan jäädytetystä
+ * data/kirjaukset.json:ista (jaadyta_kirjaukset.py) eikä mitään voi tallentaa.
+ */
+function kirjauksetLukittu() {
+  return projektiConfig.kirjaukset_lukittu === true;
+}
+
+// Jäädytyksen ajankohta (kirjaukset.json:in "haettu"), näytetään lomakkeessa
+let kirjauksetHaettu = "";
+
+/**
+ * Hakee Sheetin nykytilan Apps Scriptin doGet-rajapinnasta, tai lukitussa
+ * projektissa jäädytetyn tilan samassa muodossa.
+ */
 async function haeKommentit() {
   const url = appsScriptUrl();
-  if (!url) return;
+  if (!url && !kirjauksetLukittu()) return;
   try {
-    const resp = await fetch(url);
-    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-    const data = await resp.json();
+    let data;
+    if (kirjauksetLukittu()) {
+      data = await haeData("data/kirjaukset.json");
+      kirjauksetHaettu = data.haettu || "";
+    } else {
+      // Aikaraja: jumiin jäänyt haku pitäisi lomakkeet lukossa loputtomiin
+      const resp = await fetch(url, { signal: AbortSignal.timeout(KIRJAUSTEN_AIKARAJA_MS) });
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      data = await resp.json();
+    }
     if (data.status !== "ok" || !Array.isArray(data.rivit)) {
       throw new Error(data.message || "odottamaton vastaus");
     }
@@ -576,6 +604,26 @@ function paivitaLayer() {
   paivitaSelitys();
 }
 
+/**
+ * Sheetin kirjausten saavuttua: kaikki symbolit ja selite päivitetään
+ * paikan päällä, ja auki oleva popup piirretään uudelleen tuoreilla
+ * arvoilla. Lomake on ollut haun ajan lukossa, joten mitään syötettyä
+ * ei katoa.
+ */
+function kirjauksetSaapuivat() {
+  kirjauksetHaussa = false;
+  const nappi = document.getElementById("lataa-suositukset");
+  if (nappi) nappi.disabled = false;
+  if (!geojsonData) return;
+  geojsonData.features.forEach(f => {
+    const layer = markkerit[String(f.properties[TUNNUS] ?? "")];
+    if (layer && layer.setIcon) layer.setIcon(luoIkoni(f.properties));
+  });
+  paivitaSelitys();
+  const avoin = Object.values(markkerit).find(l => l.isPopupOpen());
+  if (avoin) avoin.getPopup().update();
+}
+
 /** Päivittää yhden symbolin ilman että popup sulkeutuu. */
 function paivitaMarkkeri(tunnus, props) {
   const layer = markkerit[String(tunnus)];
@@ -723,7 +771,7 @@ function popupLomake(feature, tunnus, tallentaja) {
     "pu-vir pu-vir-lomake"
   );
 
-  if (kaavoittaja && !kanta.oma) {
+  if (kaavoittaja && !kanta.oma && !kirjauksetLukittu()) {
     const vihje = document.createElement("p");
     vihje.className = "pu-pohja-vihje";
     vihje.textContent = "Luokka on vielä Vastuumuseon pohja — tallennus kirjaa sen omaksi kannaksi.";
@@ -776,6 +824,17 @@ function popupLomake(feature, tunnus, tallentaja) {
   jalkiosa.appendChild(viesti);
   el.appendChild(jalkiosa);
 
+  if (kirjauksetLukittu()) {
+    // Lomake näkyy harmaana: luokka ja kommentti jäävät luettaviksi
+    napit.forEach(({ nappi }) => { nappi.disabled = true; });
+    kommentti.disabled = nimi.disabled = tallenna.disabled = true;
+    nimi.value = "";
+    const pvm = kirjauksetHaettu ? new Date(kirjauksetHaettu) : null;
+    viesti.textContent = "Lausuntokierros on päättynyt, kirjauksia ei voi enää muuttaa"
+      + (pvm && !isNaN(pvm) ? ` (tilanne ${pvm.toLocaleDateString("fi-FI")})` : "");
+    return el;
+  }
+
   const url = appsScriptUrl();
   if (!url) {
     // Hiljainen epäonnistuminen olisi pahin vaihtoehto: kirjaaja ei
@@ -783,6 +842,15 @@ function popupLomake(feature, tunnus, tallentaja) {
     tallenna.disabled = true;
     viesti.className  = "pu-lomake-viesti virhe";
     viesti.textContent = "Tallennusta ei ole määritetty (apps_script_url puuttuu config.json:sta)";
+    return el;
+  }
+
+  if (kirjauksetHaussa) {
+    // Esitäyttö on vielä GeoJSONista. Popup piirtyy uudelleen, kun
+    // Sheetin kirjaukset saapuvat (kirjauksetSaapuivat).
+    napit.forEach(({ nappi }) => { nappi.disabled = true; });
+    kommentti.disabled = nimi.disabled = tallenna.disabled = true;
+    viesti.textContent = "Haetaan tallennettuja kirjauksia…";
     return el;
   }
 
@@ -1012,7 +1080,10 @@ function paivitaSelitys() {
       </li>`;
   }).join("");
 
-  selitysEl.innerHTML = `<ul class="selitys-lista">${rivit}</ul>`;
+  // Määrät ovat alustavia, kunnes Sheetin kirjaukset ovat tulleet
+  const haussa = kirjauksetHaussa
+    ? '<p class="selitys-haussa">Haetaan kirjauksia…</p>' : "";
+  selitysEl.innerHTML = `<ul class="selitys-lista">${rivit}</ul>${haussa}`;
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -1115,27 +1186,39 @@ async function init() {
     layerControl.addOverlay(layer, taso.nimi);
   });
 
-  // Sheetin nykytila ennen ensimmäistä piirtoa: sekä kaavoittajan omat
-  // kirjaukset että Vastuumuseon pohja-arvot tulevat sieltä.
+  // Sheetin nykytila (kaavoittajan omat kirjaukset ja Vastuumuseon
+  // pohja-arvot) haetaan taustalla. Kohteet piirretään sitä odottamatta,
+  // ja symbolit päivittyvät kirjausten saavuttua.
+  if (appsScriptUrl() || kirjauksetLukittu()) {
+    kirjauksetHaussa = true;
+    const nappi = document.getElementById("lataa-suositukset");
+    if (nappi) nappi.disabled = true;
+  }
+  const kirjaukset = haeKommentit();
+
   // Kioski-tiedot ennen piirtoa, jotta ne ovat mukana ensimmäisissä popupeissa
-  await Promise.all([
-    haeKommentit(),
+  const [geo] = await Promise.allSettled([
+    haeData("data/kohteet.geojson"),
     haeData("data/kioski.json")
       .then(d => { kioskiData = d || {}; })
       .catch(() => { kioskiData = {}; }),   // ei Kioski-tietoja tässä projektissa
   ]);
 
-  try {
-    geojsonData = await haeData("data/kohteet.geojson");
+  if (geo.status === "fulfilled") {
+    geojsonData = geo.value;
     paivitaLayer();
     if (geojsonLayer && geojsonLayer.getBounds().isValid()) {
       // maxZoom: yhden kohteen projektissa rajaus on nollan kokoinen ja
       // Leaflet laskisi zoomiksi äärettömän ("infinite number of tiles").
       map.fitBounds(geojsonLayer.getBounds(), { padding: [40, 40], maxZoom: 13 });
     }
-  } catch (e) {
-    console.error("GeoJSON-lataus epäonnistui:", e);
+  } else {
+    console.error("GeoJSON-lataus epäonnistui:", geo.reason);
   }
+
+  // haeKommentit ei heitä: epäonnistunut haku jättää GeoJSONin arvot voimaan
+  await kirjaukset;
+  kirjauksetSaapuivat();
 }
 
 init();

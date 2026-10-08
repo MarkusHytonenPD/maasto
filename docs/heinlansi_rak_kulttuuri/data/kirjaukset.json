@@ -1,0 +1,867 @@
+{
+ "status": "ok",
+ "haettu": "2026-10-08T12:54:17+03:00",
+ "rivit": [
+  {
+   "tunnus": "1",
+   "taho": "LVV",
+   "luokitus_vir": "",
+   "kommentti_vir": "",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "3",
+   "taho": "Maakuntaliitto",
+   "luokitus_vir": "",
+   "kommentti_vir": "",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "1",
+   "taho": "Vastuumuseo",
+   "luokitus_vir": "suojelukohde",
+   "kommentti_vir": "Olemassa olevassa kaavassa SR1?",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "2",
+   "taho": "Vastuumuseo",
+   "luokitus_vir": "suojelukohde",
+   "kommentti_vir": "Maakuntakaavan kohde. Vanhan maantien varressa sijaitsevan talonpoikaistilan rakennukset ryhmittyvät tiiviin neliömäisen pihan \nympärille. Päärakennus on vaakavuorattu, satulakattoinen hirsitalo vuodelta 1872. Aitta ja \nnavettarakennus ovat vuoraamattomia ja niissä molemmissa on poikkipäätyaihe lunetti-ikkunoin. Lisäksi \nmaantien varrella on vaja ja kellari sekä päärakennuksen itäpuolella puutarha.",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "3",
+   "taho": "Vastuumuseo",
+   "luokitus_vir": "suojelukohde",
+   "kommentti_vir": "Maakuntakaava: Koivumäki on 1900-luvulta peräisin oleva talonpoikaistalo. Sen nykyinen satulakattoinen, \nsaumarimavuorattu päärakennus edustaa seudun perinteistä rakennustapaa. Pihapiiriin kuuluu lisäksi \nkuusiosainen aittarivi, talousrakennus ja pienempi asuinrakennus, jotka ovat ryhmittyneet neliömäisen \npihan ympärille. Maakunnallisesti merkittävällä kohteella on rakennushistoriallisia ja maisemallisia arvoja ja se on kaavalla suojeltu. Tila on peräisin 1500-luvulta.",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "4",
+   "taho": "Vastuumuseo",
+   "luokitus_vir": "suojelukohde",
+   "kommentti_vir": "Voimassa olevassa kaavassa SR1: \"Raaminmäen kunnalliskoti\" perustettiin 1914. 1930-luvulla siellä oli lähes sata asukasta. Entisessä navetassa toimi pitkään Kerman Savi Oy:n tehdas, jota on laajennettu useaan otteeseen 1990-luvulla.",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "5",
+   "taho": "Vastuumuseo",
+   "luokitus_vir": "suojelukohde",
+   "kommentti_vir": "SR, mutta mikä on kaavoittajan linja? Aiemmat kohteet (1-4) ei merkintää - miksi tälle, mihin arvo perustuu? Katso Kioski-tiedot",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "6",
+   "taho": "Vastuumuseo",
+   "luokitus_vir": "suojelukohde",
+   "kommentti_vir": "SR, RKY, katso Kioski,",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "7",
+   "taho": "Vastuumuseo",
+   "luokitus_vir": "suojelukohde",
+   "kommentti_vir": "SR, maakuntakaava / RKY, katso kioski",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "8",
+   "taho": "Vastuumuseo",
+   "luokitus_vir": "suojelukohde",
+   "kommentti_vir": "SR, maakuntakaava, VAMA",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "9",
+   "taho": "Vastuumuseo",
+   "luokitus_vir": "suojelukohde",
+   "kommentti_vir": "Voimassa olevaassa kaavassa SR, VAMA",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "10",
+   "taho": "Vastuumuseo",
+   "luokitus_vir": "suojelukohde",
+   "kommentti_vir": "Metsähallituksen hirsinen 25 hengen metsäkämppä on vuodelta 1941. Kämppä on alueen vanhimpia säilyneitä esimerkkejä melkein kokonaan kadonneesta metsänhakkuutyömaiden rakennuskannasta. Kohteella on rakennushistoriallisia ja historiallisia arvoja ja se on maakunnallisesti merkittävä.",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "12",
+   "taho": "Vastuumuseo",
+   "luokitus_vir": "",
+   "kommentti_vir": "Muu kulttuuriperintökohde? Arkeologiaa?",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "13",
+   "taho": "Vastuumuseo",
+   "luokitus_vir": "paikallinen",
+   "kommentti_vir": "Onko käytössä? Historiallista todistusvoimaa. Lisätietoja kaivataan, kioski?",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "14",
+   "taho": "Vastuumuseo",
+   "luokitus_vir": "suojelukohde",
+   "kommentti_vir": "Mainitaan RKY-kuvauksessa",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "15",
+   "taho": "Vastuumuseo",
+   "luokitus_vir": "suojelukohde",
+   "kommentti_vir": "",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "16",
+   "taho": "Vastuumuseo",
+   "luokitus_vir": "paikallinen",
+   "kommentti_vir": "",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "17",
+   "taho": "Vastuumuseo",
+   "luokitus_vir": "paikallinen",
+   "kommentti_vir": "",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "18",
+   "taho": "Vastuumuseo",
+   "luokitus_vir": "paikallinen",
+   "kommentti_vir": "",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "20",
+   "taho": "Vastuumuseo",
+   "luokitus_vir": "",
+   "kommentti_vir": "",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "21",
+   "taho": "Vastuumuseo",
+   "luokitus_vir": "",
+   "kommentti_vir": "Ei voi näillä tiedoilla arvioida.",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "24",
+   "taho": "Vastuumuseo",
+   "luokitus_vir": "paikallinen",
+   "kommentti_vir": "",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "35",
+   "taho": "Vastuumuseo",
+   "luokitus_vir": "",
+   "kommentti_vir": "",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "38",
+   "taho": "Vastuumuseo",
+   "luokitus_vir": "paikallinen",
+   "kommentti_vir": "",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "23",
+   "taho": "Vastuumuseo",
+   "luokitus_vir": "paikallinen",
+   "kommentti_vir": "Lisätietoja kaivataan, pihapiirissä näkyy mm. vanhoja piharakennuksia",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "53",
+   "taho": "Vastuumuseo",
+   "luokitus_vir": "paikallinen",
+   "kommentti_vir": "",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "54",
+   "taho": "Vastuumuseo",
+   "luokitus_vir": "paikallinen",
+   "kommentti_vir": "",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "46",
+   "taho": "Vastuumuseo",
+   "luokitus_vir": "paikallinen",
+   "kommentti_vir": "",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "28",
+   "taho": "Vastuumuseo",
+   "luokitus_vir": "",
+   "kommentti_vir": "Arvot?",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "58",
+   "taho": "Vastuumuseo",
+   "luokitus_vir": "",
+   "kommentti_vir": "Heikko kunto",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "62",
+   "taho": "Vastuumuseo",
+   "luokitus_vir": "",
+   "kommentti_vir": "",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "36",
+   "taho": "Vastuumuseo",
+   "luokitus_vir": "paikallinen",
+   "kommentti_vir": "",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "40",
+   "taho": "Vastuumuseo",
+   "luokitus_vir": "paikallinen",
+   "kommentti_vir": "Lisätietoja ja kunnon kuvaa vaatisi?",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "52",
+   "taho": "Vastuumuseo",
+   "luokitus_vir": "",
+   "kommentti_vir": "Ei rakennusta?",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "61",
+   "taho": "Vastuumuseo",
+   "luokitus_vir": "",
+   "kommentti_vir": "Ei huomioita",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "32",
+   "taho": "Vastuumuseo",
+   "luokitus_vir": "paikallinen",
+   "kommentti_vir": "",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "26",
+   "taho": "Vastuumuseo",
+   "luokitus_vir": "paikallinen",
+   "kommentti_vir": "Mukava pihapiiri",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "43",
+   "taho": "Vastuumuseo",
+   "luokitus_vir": "",
+   "kommentti_vir": "Onko tyhjillään? Satavuotias kohde, jos tietoja helposti saatavilla niin voi täyttää.",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "51",
+   "taho": "Vastuumuseo",
+   "luokitus_vir": "",
+   "kommentti_vir": "Ei",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "42",
+   "taho": "Vastuumuseo",
+   "luokitus_vir": "paikallinen",
+   "kommentti_vir": "Autio?",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "33",
+   "taho": "Vastuumuseo",
+   "luokitus_vir": "",
+   "kommentti_vir": "Ei",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "29",
+   "taho": "Vastuumuseo",
+   "luokitus_vir": "",
+   "kommentti_vir": "",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "31",
+   "taho": "Vastuumuseo",
+   "luokitus_vir": "",
+   "kommentti_vir": "",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "41",
+   "taho": "Vastuumuseo",
+   "luokitus_vir": "",
+   "kommentti_vir": "",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "63",
+   "taho": "Vastuumuseo",
+   "luokitus_vir": "",
+   "kommentti_vir": "",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "55",
+   "taho": "Vastuumuseo",
+   "luokitus_vir": "paikallinen",
+   "kommentti_vir": "",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "34",
+   "taho": "Vastuumuseo",
+   "luokitus_vir": "paikallinen",
+   "kommentti_vir": "Vähän tietoja, lisää olisi hyvä olla. Melkein 100v.",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "60",
+   "taho": "Vastuumuseo",
+   "luokitus_vir": "",
+   "kommentti_vir": "Ei",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "59",
+   "taho": "Vastuumuseo",
+   "luokitus_vir": "paikallinen",
+   "kommentti_vir": "",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "22",
+   "taho": "Vastuumuseo",
+   "luokitus_vir": "paikallinen",
+   "kommentti_vir": "",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "25",
+   "taho": "Vastuumuseo",
+   "luokitus_vir": "paikallinen",
+   "kommentti_vir": "",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "56",
+   "taho": "Vastuumuseo",
+   "luokitus_vir": "paikallinen",
+   "kommentti_vir": "",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "30",
+   "taho": "Vastuumuseo",
+   "luokitus_vir": "",
+   "kommentti_vir": "",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "37",
+   "taho": "Vastuumuseo",
+   "luokitus_vir": "",
+   "kommentti_vir": "",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "44",
+   "taho": "Vastuumuseo",
+   "luokitus_vir": "",
+   "kommentti_vir": "",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "50",
+   "taho": "Vastuumuseo",
+   "luokitus_vir": "",
+   "kommentti_vir": "Energiatehokas",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "57",
+   "taho": "Vastuumuseo",
+   "luokitus_vir": "",
+   "kommentti_vir": "",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "48",
+   "taho": "Vastuumuseo",
+   "luokitus_vir": "",
+   "kommentti_vir": "Erikoinen",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "39",
+   "taho": "Vastuumuseo",
+   "luokitus_vir": "paikallinen",
+   "kommentti_vir": "",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "49",
+   "taho": "Vastuumuseo",
+   "luokitus_vir": "",
+   "kommentti_vir": "?",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "27",
+   "taho": "Vastuumuseo",
+   "luokitus_vir": "",
+   "kommentti_vir": "Oman aikansa hyvin säilynyt esimerkki, katto tosin uusittu.",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "47",
+   "taho": "Vastuumuseo",
+   "luokitus_vir": "paikallinen",
+   "kommentti_vir": "",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "4",
+   "taho": "Kaavoittaja",
+   "luokitus_vir": "kumoutuva_suojelukohde",
+   "kommentti_vir": "",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "2",
+   "taho": "Kaavoittaja",
+   "luokitus_vir": "kumoutuva_mk_suojelukohde",
+   "kommentti_vir": "",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "34",
+   "taho": "Kaavoittaja",
+   "luokitus_vir": "ei_suojeluarvoja",
+   "kommentti_vir": "Alkuperäiseen nähden lisätty 2 kuvaa. Toisesta näkyy pihapiiriä ja päärakennuksen sivu. Näiden perusteella voitaneen sanoa, että kohde ei ole Rakennushistoriallisesti/rakennustaiteellisesti/arkkitehtonisesti edustava, joka sijoittuisi maiseman kannalta keskeisesti.",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "17",
+   "taho": "Kaavoittaja",
+   "luokitus_vir": "kumottava",
+   "kommentti_vir": "",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "15",
+   "taho": "Kaavoittaja",
+   "luokitus_vir": "kumottava",
+   "kommentti_vir": "",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "1",
+   "taho": "Kaavoittaja",
+   "luokitus_vir": "kumoutuva_suojelukohde",
+   "kommentti_vir": "",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "18",
+   "taho": "Kaavoittaja",
+   "luokitus_vir": "kumottava",
+   "kommentti_vir": "",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "23",
+   "taho": "Kaavoittaja",
+   "luokitus_vir": "paikallinen",
+   "kommentti_vir": "Kohteelle lisätty kuva aittarakennuksesta. Kuva oli jäänyt pois ensimmäisestä versiosta. Kuvassa, jossa koko pihapiirin rakennukset näkyvät on etualalla vanha kivimuurinen rakennus. Sen oleellisimmat ulospäin näkyvät osa ilmenevät kuvasta. Rakennus on varastokäytössä ja tähän käyttötarkoitukseen soveltuvassa kunnossa.\n\nPihapiiri on maisemallisesti hallitsevalla paikalla mäkisen peltoalueen laella.",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "40",
+   "taho": "Kaavoittaja",
+   "luokitus_vir": "ei_suojeluarvoja",
+   "kommentti_vir": "Kohde ei ole ollut vuosiin käytössä ja on huonossa kunnossa. Rakennukset ovat puuston seassa.",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "62",
+   "taho": "Kaavoittaja",
+   "luokitus_vir": "ei_suojeluarvoja",
+   "kommentti_vir": "",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "13",
+   "taho": "Kaavoittaja",
+   "luokitus_vir": "kumottava",
+   "kommentti_vir": "",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "42",
+   "taho": "Kaavoittaja",
+   "luokitus_vir": "ei_suojeluarvoja",
+   "kommentti_vir": "Kohde on autio ja heikkokuntoinen. Kasvillisuus ja puusto kasvaa ja vaurioittaa perustuksia",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "52",
+   "taho": "Kaavoittaja",
+   "luokitus_vir": "ei_suojeluarvoja",
+   "kommentti_vir": "Peruskaran mukaan lähistöllä ei ole rakennuksia. Rakennus on purettu tai rekisterissä on virhe.",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "63",
+   "taho": "Kaavoittaja",
+   "luokitus_vir": "ei_suojeluarvoja",
+   "kommentti_vir": "",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "31",
+   "taho": "Kaavoittaja",
+   "luokitus_vir": "ei_suojeluarvoja",
+   "kommentti_vir": "",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "20",
+   "taho": "Kaavoittaja",
+   "luokitus_vir": "ei_suojeluarvoja",
+   "kommentti_vir": "",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "37",
+   "taho": "Kaavoittaja",
+   "luokitus_vir": "ei_suojeluarvoja",
+   "kommentti_vir": "",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "41",
+   "taho": "Kaavoittaja",
+   "luokitus_vir": "ei_suojeluarvoja",
+   "kommentti_vir": "",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "57",
+   "taho": "Kaavoittaja",
+   "luokitus_vir": "ei_suojeluarvoja",
+   "kommentti_vir": "",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "29",
+   "taho": "Kaavoittaja",
+   "luokitus_vir": "ei_suojeluarvoja",
+   "kommentti_vir": "",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "30",
+   "taho": "Kaavoittaja",
+   "luokitus_vir": "ei_suojeluarvoja",
+   "kommentti_vir": "",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "44",
+   "taho": "Kaavoittaja",
+   "luokitus_vir": "ei_suojeluarvoja",
+   "kommentti_vir": "",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "45",
+   "taho": "Kaavoittaja",
+   "luokitus_vir": "ei_suojeluarvoja",
+   "kommentti_vir": "",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "35",
+   "taho": "Kaavoittaja",
+   "luokitus_vir": "ei_suojeluarvoja",
+   "kommentti_vir": "",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "33",
+   "taho": "Kaavoittaja",
+   "luokitus_vir": "ei_suojeluarvoja",
+   "kommentti_vir": "",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "51",
+   "taho": "Kaavoittaja",
+   "luokitus_vir": "ei_suojeluarvoja",
+   "kommentti_vir": "",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "50",
+   "taho": "Kaavoittaja",
+   "luokitus_vir": "ei_suojeluarvoja",
+   "kommentti_vir": "",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "48",
+   "taho": "Kaavoittaja",
+   "luokitus_vir": "ei_suojeluarvoja",
+   "kommentti_vir": "",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "49",
+   "taho": "Kaavoittaja",
+   "luokitus_vir": "ei_suojeluarvoja",
+   "kommentti_vir": "Ei erityisen edustava rakennustaiteellisesti tai arkkitehtonisesti. Saunarakennus melko alkuperäinen, mutta ei silti erityinen. Rakennukset vähälllä käytöllä",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "27",
+   "taho": "Kaavoittaja",
+   "luokitus_vir": "ei_suojeluarvoja",
+   "kommentti_vir": "Rannalla oleva vapaa-ajanrakennus on oleellisempi kaavaan osoitettava kohde. Tämä on lähes erillinen pihapiiri eikä näin ollen tukisi rannan kohteen osoittamista kaavaan. Tarkoituksenmukaisempaa tehdä valinta ja huomioida oleellisempi rannan vapaa-ajanrakennus.",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "47",
+   "taho": "Kaavoittaja",
+   "luokitus_vir": "paikallinen",
+   "kommentti_vir": "",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "12",
+   "taho": "Kaavoittaja",
+   "luokitus_vir": "lisatietoja",
+   "kommentti_vir": "Käydään läpi arkeologien kanssa",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "21",
+   "taho": "Kaavoittaja",
+   "luokitus_vir": "lisatietoja",
+   "kommentti_vir": "Rakennus ei ole ollut käytössä. Sitä kuitenkin ollaan korjaamassa ja se sijoittuu melko näkyvälle paikalle tien varteen sekä vesistöön nähden.",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "60",
+   "taho": "Kaavoittaja",
+   "luokitus_vir": "ei_suojeluarvoja",
+   "kommentti_vir": "",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "58",
+   "taho": "Kaavoittaja",
+   "luokitus_vir": "ei_suojeluarvoja",
+   "kommentti_vir": "",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "43",
+   "taho": "Kaavoittaja",
+   "luokitus_vir": "ei_suojeluarvoja",
+   "kommentti_vir": "Rakennus ollut pitkään käyttämättömänä ja heikkokuntoinen. Katossa reikkiä ja kasvillisuus on vallannut pihan.",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "61",
+   "taho": "Kaavoittaja",
+   "luokitus_vir": "ei_suojeluarvoja",
+   "kommentti_vir": "",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "28",
+   "taho": "Kaavoittaja",
+   "luokitus_vir": "ei_suojeluarvoja",
+   "kommentti_vir": "Rakennus on uudistettu eikä omaa alkuperäisiä suojelullisia ominaisuuksia.",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "3",
+   "taho": "Kaavoittaja",
+   "luokitus_vir": "suojelukohde",
+   "kommentti_vir": "",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "5",
+   "taho": "Kaavoittaja",
+   "luokitus_vir": "suojelukohde",
+   "kommentti_vir": "",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "6",
+   "taho": "Kaavoittaja",
+   "luokitus_vir": "suojelukohde",
+   "kommentti_vir": "",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "7",
+   "taho": "Kaavoittaja",
+   "luokitus_vir": "suojelukohde",
+   "kommentti_vir": "",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "8",
+   "taho": "Kaavoittaja",
+   "luokitus_vir": "suojelukohde",
+   "kommentti_vir": "",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "9",
+   "taho": "Kaavoittaja",
+   "luokitus_vir": "suojelukohde",
+   "kommentti_vir": "",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "10",
+   "taho": "Kaavoittaja",
+   "luokitus_vir": "suojelukohde",
+   "kommentti_vir": "",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "14",
+   "taho": "Kaavoittaja",
+   "luokitus_vir": "suojelukohde",
+   "kommentti_vir": "",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "22",
+   "taho": "Kaavoittaja",
+   "luokitus_vir": "paikallinen",
+   "kommentti_vir": "",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "24",
+   "taho": "Kaavoittaja",
+   "luokitus_vir": "paikallinen",
+   "kommentti_vir": "",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "25",
+   "taho": "Kaavoittaja",
+   "luokitus_vir": "paikallinen",
+   "kommentti_vir": "",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "26",
+   "taho": "Kaavoittaja",
+   "luokitus_vir": "paikallinen",
+   "kommentti_vir": "",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "32",
+   "taho": "Kaavoittaja",
+   "luokitus_vir": "paikallinen",
+   "kommentti_vir": "",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "36",
+   "taho": "Kaavoittaja",
+   "luokitus_vir": "paikallinen",
+   "kommentti_vir": "",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "38",
+   "taho": "Kaavoittaja",
+   "luokitus_vir": "paikallinen",
+   "kommentti_vir": "",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "39",
+   "taho": "Kaavoittaja",
+   "luokitus_vir": "paikallinen",
+   "kommentti_vir": "",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "46",
+   "taho": "Kaavoittaja",
+   "luokitus_vir": "paikallinen",
+   "kommentti_vir": "",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "53",
+   "taho": "Kaavoittaja",
+   "luokitus_vir": "paikallinen",
+   "kommentti_vir": "",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "54",
+   "taho": "Kaavoittaja",
+   "luokitus_vir": "paikallinen",
+   "kommentti_vir": "",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "55",
+   "taho": "Kaavoittaja",
+   "luokitus_vir": "paikallinen",
+   "kommentti_vir": "",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "56",
+   "taho": "Kaavoittaja",
+   "luokitus_vir": "paikallinen",
+   "kommentti_vir": "",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "59",
+   "taho": "Kaavoittaja",
+   "luokitus_vir": "paikallinen",
+   "kommentti_vir": "",
+   "nimi_vir": ""
+  },
+  {
+   "tunnus": "16",
+   "taho": "Kaavoittaja",
+   "luokitus_vir": "kumottava",
+   "kommentti_vir": "",
+   "nimi_vir": ""
+  }
+ ]
+}
